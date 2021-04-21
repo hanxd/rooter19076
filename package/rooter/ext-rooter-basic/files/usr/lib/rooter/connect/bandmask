@@ -1,0 +1,203 @@
+#!/bin/sh
+
+ROOTER=/usr/lib/rooter
+
+log() {
+	logger -t "Band Mask " "$@"
+}
+
+CURRMODEM=$1
+MODTYPE=$2
+
+CPORT=$(uci get modem.modem$CURRMODEM.commport)
+
+if [ -e $ROOTER/unlock.sh ]; then
+	$ROOTER/unlock.sh $CURRMODEM $CPORT
+fi
+
+sierrabandmask() {
+	ATCMDD='AT!ENTERCND="A710";!BAND?'
+	OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
+	log " "
+	log "Sierra Response : $OX"
+	log " "
+	echo "$OX" > /tmp/scanx
+	while IFS= read -r line
+	do
+		read -r line
+		Unk=$(echo $line | grep "Unknown")
+		read -r line
+		if [ -z $Unk ]; then
+			BND=$(echo $line | cut -d, -f3 | tr " " ",")
+			L1=$(echo $BND | cut -d, -f3)
+			GW=$(echo $BND | cut -d, -f2) 
+			L2=$(echo $BND | cut -d, -f4)
+		else
+			BND=$(echo $line | cut -d, -f3 | tr " " ",")
+			L1=$(echo $BND | cut -d, -f2)
+			GW=$(echo $BND | cut -d, -f1)
+			L2=$(echo $BND | cut -d, -f3)
+		fi
+		break
+	done < /tmp/scanx
+	log " "
+	log "LTE Band Mask : $L2$L1"
+	log " "
+	uci set modem.modem$CURRMODEM.GW="$GW"
+	uci set modem.modem$CURRMODEM.L1="0x$L2$L1"
+	uci set modem.modem$CURRMODEM.L1X="$L1"
+	uci set modem.modem$CURRMODEM.L2="$L2"
+	uci commit modem
+}
+
+quebandmask() {
+	idP=$(uci get modem.modem$CURRMODEM.idP)
+	ATCMDD="AT+CGMM"
+    model=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
+	uci set modem.modem$CURRMODEM.model=$model
+	ATCMDD='AT+QCFG="band"'
+	EM160=0
+	log " "
+	log "Modem PID : $idP"
+	log "Modem Model : $model"
+	log " "
+	if [ $idP = "0620" -o $idP = "0800" ]; then
+		EM20=$(echo $model | grep "EM20")
+		if [ -z $EM20 ]; then
+			EM160=1
+			ATCMDD='AT+QNWPREFCFG="lte_band"'
+		fi
+	fi
+	OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
+	log " "
+	log "Quectel Response : $OX"
+	log " "
+	if [ $EM160 = 0 ]; then
+		qm=$(echo $OX" " | grep "+QCFG:" | tr -d '"' | tr " " ",")
+		log "EM20 $qm"
+		log " "
+		L1=$(echo $qm | cut -d, -f5)
+		GW=$(echo $qm | cut -d, -f4)
+		L2="0"
+	else
+ 		#OX='AT+QNWPREFCFG="lte_band",+QNWPREFCFG: "lte_band",1:2:3:4:5:7:8:12:13:14:17:18:19:20:25:26:28:29:30:38:39:42:43:46:48:66 OK'
+		qm=$(echo $OX" " | grep "+QNWPREFCFG:" | tr -d '"' | tr " " ":" | tr "," ":")
+		log "EM160 $qm"
+		log " "
+		bd=5
+		msk=""
+		L1=$(echo $qm | cut -d: -f"$bd")
+		while [ $L1 != "OK" ]
+		do
+			msk=$msk$L1" "
+			bd=$((bd+1))
+			L1=$(echo $qm | cut -d: -f"$bd")
+		done
+		L1=$(encodemask $msk)
+		L2="0"
+		GW="0"
+	fi
+	log " "
+	log "LTE Band Mask : $L1"
+	log " "
+	uci set modem.modem$CURRMODEM.GW="$GW"
+	uci set modem.modem$CURRMODEM.L1="$L1"
+	uci set modem.modem$CURRMODEM.L2="$L2"
+	uci commit modem
+}
+
+fibomask() {
+	idV=$(uci get modem.modem$CURRMODEM.idV)
+	idP=$(uci get modem.modem$CURRMODEM.idP)
+	CPORT=$(uci get modem.modem$CURRMODEM.commport)
+	ATCMDD="AT+CGMM"
+    model=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
+	#uci set modem.modem$CURRMODEM.model="$model"
+	if [ $idV = "8087" ]; then
+		ATCMDD='AT+XACT?'
+		OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
+		qm=$(echo $OX" " | grep "+XACT:" | tr -d '"' | tr " " ",")
+# Fake FM150 - L850 5G	
+		#OX='AT+GTACT? +GTACT: 20,6,3,1,2,4,5,8,101,102,103,104,105,107,108,112,113,114,125,126,129,130,141,142,143,146,148,166,171,502,505,507,5012,5025,5041,5048,5066,5071,5077,5078 OK'
+		OX='AT+GTACT? +GTACT: 17,3,,102,104,105,107,112,117,130,141,142,143,148,166,171,505,507,5012,5041,5066,5071  OK'
+		qm=$(echo $OX" " | grep "+GTACT:" | tr -d '"' | tr " " ",")	
+	else
+		FM150=$(echo "$model" | grep "FM150")
+		if [ -z $FM150 ]; then
+			ATCMDD='AT+XACT?'
+			OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
+			qm=$(echo $OX" " | grep "+XACT:" | tr -d '"' | tr " " ",")
+		else
+			ATCMDD='AT+GTACT?'
+			OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
+			qm=$(echo $OX" " | grep "+GTACT:" | tr -d '"' | tr " " ",")
+		fi
+	fi
+	log " "
+	log "Get Current Bands : $ATCMDD"
+	log "Current Bands : $OX"
+	log " "
+	bd=4
+	msk=""
+	L1=$(echo $qm | cut -d, -f"$bd")
+	while [ $L1 != "OK" ]
+	do
+		if [ ! -z "$L1" ]; then
+			if [ "$L1" -ge 100 -a "$L1" -lt 200 ]; then
+				L1=$((L1-100))
+				msk=$msk$L1" "
+			fi
+		fi
+		bd=$((bd+1))
+		L1=$(echo $qm | cut -d, -f"$bd")
+		if [ -z "$L1" ]; then
+			bd=$((bd+1))
+			L1=$(echo $qm | cut -d, -f"$bd")
+		fi
+	done
+	L1=$(encodemask $msk)
+	
+	bd=6
+	msk=""
+	L5=$(echo $qm | cut -d, -f"$bd")
+	while [ "$L5" != "OK" ]
+	do
+		if [ "$L5" -ge 500 -a $L5 -lt 510 ]; then
+			L5=$((L5-500))
+			msk=$msk$L5" "
+		fi
+		if [ "$L5" -ge 5001 -a "$L5" -lt 5100 ]; then
+			L5=$((L5-5000))
+			msk=$msk$L5" "
+		fi
+		bd=$((bd+1))
+		L5=$(echo $qm | cut -d, -f"$bd")
+	done
+	if [ -z "$msk" ]; then
+		L5=""
+	else
+		L5="0x"$(encodemask $msk)
+	fi
+	if [ ! -z "$L1" ]; then
+		log " "
+		log "LTE Band Mask : $L1"
+		log "5G Band Mask : $L5"
+		log " "
+		uci set modem.modem$CURRMODEM.L1="0x$L1"
+		uci set modem.modem$CURRMODEM.L5="$L5"
+		uci commit modem
+	fi
+}
+
+case $MODTYPE in
+	"0" )
+		sierrabandmask
+	;;
+	"1" )
+		quebandmask
+	;;
+	"2" )
+		fibomask
+	;;
+esac
+		
