@@ -18,36 +18,6 @@ get_base() {
 
 get_base
 
-COPS="-"
-COPS_MCC="-"
-COPS_MNC="-"
-COPSX=$(echo $O | grep -o "+COPS: [01],0,.\+," | cut -d, -f3 | grep -o "[^\"]\+")
-
-if [ "x$COPSX" != "x" ]; then
-	COPS=$COPSX
-fi
-
-COPSX=$(echo $O | grep -o "+COPS: [01],2,.\+," | cut -d, -f3 | grep -o "[^\"]\+")
-
-if [ "x$COPSX" != "x" ]; then
-	COPS_MCC=${COPSX:0:3}
-	COPS_MNC=${COPSX:3:3}
-	if [ "$COPS" = "-" ]; then
-		COPS=$(awk -F[\;] '/'$COPS'/ {print $2}' $ROOTER/signal/mccmnc.data)
-		[ "x$COPS" = "x" ] && COPS="-"
-	fi
-fi
-
-if [ "$COPS" = "-" ]; then
-	COPS=$(echo "$O" | awk -F[\"] '/^\+COPS: 0,0/ {print $2}')
-	if [ "x$COPS" = "x" ]; then
-		COPS="-"
-		COPS_MCC="-"
-		COPS_MNC="-"
-	fi
-fi
-COPS_MNC=" "$COPS_MNC
-
 DOWN=$(echo "$O" | awk -F[,] '/\+CGEQNEG:/ {printf "%s", $4}')
 if [ "x$DOWN" != "x" ]; then
 	UP=$(echo "$O" | awk -F[,] '/\+CGEQNEG:/ {printf "%s", $3}')
@@ -99,9 +69,6 @@ case $pval in
 	;;
 esac
 
-echo 'COPS="'"$COPS"'"' > /tmp/base$CURRMODEM.file
-echo 'COPS_MCC="'"$COPS_MCC"'"' >> /tmp/base$CURRMODEM.file
-echo 'COPS_MNC="'"$COPS_MNC"'"' >> /tmp/base$CURRMODEM.file
 echo 'MODEM="'"$MODEM"'"' >> /tmp/base$CURRMODEM.file
 echo 'DOWN="'"$DOWN"'"' >> /tmp/base$CURRMODEM.file
 echo 'UP="'"$UP"'"' >> /tmp/base$CURRMODEM.file

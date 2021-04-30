@@ -96,6 +96,8 @@ set_dns2() {
 		_DNS2=$pDNS2
 		_DNS3=$pDNS3
 		_DNS4=$pDNS4
+		v4dns=""
+		v6dns=""
 	else
 		log "Using Provider assigned DNS"
 		pdns=0
@@ -103,6 +105,8 @@ set_dns2() {
 		_DNS2=$DNS2
 		_DNS3=$DNS3
 		_DNS4=$DNS4
+		v4dns="$DNS1 $DNS2"
+		v6dns="$DNS3 $DNS4"
 	fi
 
 	aDNS="$_DNS1 $_DNS2 $_DNS3 $_DNS4"
@@ -116,7 +120,11 @@ set_dns2() {
 	done
 
 	bDNS=$(echo $bDNS)
-	uci set network.wan$INTER.dns="$bDNS"
+	if [ "$pdns" -eq 0 -a "$v6cap" -eq 2 ]; then
+		uci set network.wan$INTER.dns="$v4dns"
+	else
+		uci set network.wan$INTER.dns="$bDNS"
+	fi
 }
 
 
@@ -287,12 +295,26 @@ addv6() {
 	. /lib/netifd/netifd-proto.sh
 	log "Adding IPv6 dynamic interface"
 	local interface=wan$INTER
+	local DNSV
 	json_init
 	json_add_string name "${interface}_6"
 	json_add_string ifname "@$interface"
 	json_add_string proto "dhcpv6"
 	json_add_string extendprefix 1
 	[ "$pdns" = 1 ] && json_add_boolean peerdns 0
+	if [ -z "$v6dns" ]; then
+		if [ -s /tmp/v6dns$INTER ]; then
+			v6dns=$(cat /tmp/v6dns$INTER 2>/dev/null)
+		fi
+	fi
+	if [ -n "$v6dns" ]; then
+		json_add_boolean peerdns 0
+		json_add_array dns
+			for DNSV in $(echo "$v6dns"); do
+				json_add_string "" "$DNSV"
+			done
+		json_close_array
+	fi
 	proto_add_dynamic_defaults
 	json_close_object
 	ubus call network add_dynamic "$(json_dump)"
@@ -415,8 +437,15 @@ else
 		else
 			if [ $idV = 1bc7 ]; then
 				CPORT=2
-			elif [ $idV = 2c7c -a $idP = 0620 ]; then
-				CPORT=2
+			elif [ $idV = 2c7c ]; then
+				case $idP in
+					"0620"|"0800" )
+						CPORT=2
+					;;
+					* )
+						CPORT=1
+					;;
+				esac
 			elif [ $idV = 05c6 -a $idP = 9025 ]; then
 				[ $MAN = "Telit" ] || CPORT=2
 			else
@@ -560,7 +589,7 @@ else
 						"2cb7" )
 							lua $ROOTER/common/modemchk.lua "$idV" "$idP" "0" "0"
 							source /tmp/parmpass
-							if [ -z /dev/ttyUSB0 ]; then
+							if [ ! -e /dev/ttyUSB0 ]; then
 								ACMPORT=`expr $CPORT + $BASEP`
 								CPORT="8$ACMPORT"
 								ln -fs /dev/ttyACM$ACMPORT /dev/ttyUSB$CPORT
@@ -738,6 +767,8 @@ if [ -n "$CHKPORT" ]; then
 
 	DHCP=1
 	if [ $PROT = 28 ]; then
+		DHCP=0
+	elif [ $PROT = 3 -o $PROT = 30 ]; then
 		DHCP=0
 	elif [ $PROT = 2 -a $idV = 05c6 -a $idP = 9025 ]; then
 		[ $MAN = "Telit" ] || DHCP=0

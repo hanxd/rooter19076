@@ -176,10 +176,6 @@ case $uVid in
 		OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
 	;;
 	"8087"|"2cb7" )
-		if [ $uVid = 8087 ]; then
-			model="FM150"
-			uVid="2cb7"
-		fi
 		FM150=""
 		if [ $uVid = 2cb7 ]; then
 			FM150=$(echo $model | grep "FM150")

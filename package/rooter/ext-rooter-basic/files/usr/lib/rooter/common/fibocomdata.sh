@@ -88,7 +88,7 @@ SINR=""
 
 CSQ=$(echo $OX | grep -o "+CSQ: [0-9]\{1,2\}" | grep -o "[0-9]\{1,2\}")
 if [ "$CSQ" = "99" ]; then
-	CSQ="-"
+	CSQ=""
 fi
 if [ -n "$CSQ" ]; then
 	CSQ_PER=$(($CSQ * 100/31))"%"
@@ -202,8 +202,8 @@ if [ -n "$GTCCDATA" ]; then
 			RSRQ=$(echo $CCVAL | cut -d, -f14)
 			if [ "$RSRP" -ne 255 ] && [ "$RSRQ" -ne 255 ]; then
 				decode_signal
-				#CSQ="-"
-				#CSQ_RSSI="-"
+				CSQ="-"
+				CSQ_RSSI="-"
 				if [ "$CRAT" -eq 4 ]; then
 					CSQ_PER=$((100 - (($RSCPs + 44) * 100/-96)))"%"
 				else
@@ -358,8 +358,6 @@ if [ -n "$MRAT" ]; then
 	"14" )
 		NETMODE="9" ;;
 	"17" )
-		NETMODE="8" ;;
-	"20" )
 		NETMODE="8" ;;
 	* )
 		NETMODE="1" ;;

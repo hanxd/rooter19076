@@ -277,3 +277,7 @@ if [ $MATCH = 0 ]; then
 fi
 
 touch /tmp/profile$CURRMODEM
+
+if [ -e /usr/lib/rooter/autoapn.sh ]; then
+	/usr/lib/rooter/autoapn.sh $CURRMODEM
+fi

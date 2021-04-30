@@ -89,6 +89,9 @@ QTEMP=$(echo $OX | grep -o "+QTEMP: [0-9]\{1,3\}")
 if [ -z "$QTEMP" ]; then
 	QTEMP=$(echo $OX | grep -o "+QTEMP:[ ]\?\"XO[_-]THERM[_-].\+[0-9]\{1,3\}\"" | cut -d\" -f 4)
 fi
+if [ -z "$QTEMP" ]; then
+	QTEMP=$(echo $OX | grep -o "+QTEMP:[ ]\?\"MDM-CORE-USR.\+[0-9]\{1,3\}\"" | cut -d\" -f 4)
+fi
 if [ -n "$QTEMP" ]; then
 	CTEMP=$(echo $QTEMP | grep -o "[0-9]\{1,3\}")$(printf "\xc2\xb0")"C"
 fi
@@ -146,7 +149,7 @@ case $RAT in
 		fi
 
 		if [ -n "$NR_NSA" ]; then
-			MODE="$MODE/NR EN-DC"
+			MODE="LTE/NR EN-DC"
 			if [ -n "$QENG5" ]  && [ -n "$LBAND" ] && [ "$RSCP" != "-" ] && [ "$ECIO" != "-" ]; then
 				PCI="$PCI, "$(echo $QENG5 | cut -d, -f4)
 				SCHV=$(echo $QENG5 | cut -d, -f8)
@@ -237,7 +240,7 @@ if [ -n "$QRSRP" ] && [ "$RAT" != "WCDMA" ]; then
 	RSRP3=$(echo $QRSRP | cut -d, -f3)
 	RSRP4=$(echo $QRSRP | cut -d, -f4)
 	if [ "$RSRP2$RSRP3$RSRP4" != "-44-44-44" ]; then
-		if [ "$RSRP3$RSRP4" == "-140-140" ]; then
+		if [ "$RSRP3$RSRP4" == "-140-140" -o "$RSRP3$RSRP4" == "-44-44" ]; then
 			RSCP1="RxD "$(echo $QRSRP | cut -d, -f2)
 		else
 			RSCP=$RSCP" dBm (RxD "$RSRP2" dBm)<br />"$RSRP3

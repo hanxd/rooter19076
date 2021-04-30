@@ -11,10 +11,6 @@ MODTYPE=$2
 
 CPORT=$(uci get modem.modem$CURRMODEM.commport)
 
-if [ -e $ROOTER/unlock.sh ]; then
-	$ROOTER/unlock.sh $CURRMODEM $CPORT
-fi
-
 sierrabandmask() {
 	ATCMDD='AT!ENTERCND="A710";!BAND?'
 	OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
@@ -72,6 +68,7 @@ quebandmask() {
 	log " "
 	log "Quectel Response : $OX"
 	log " "
+	L5=""
 	if [ $EM160 = 0 ]; then
 		qm=$(echo $OX" " | grep "+QCFG:" | tr -d '"' | tr " " ",")
 		log "EM20 $qm"
@@ -82,7 +79,7 @@ quebandmask() {
 	else
  		#OX='AT+QNWPREFCFG="lte_band",+QNWPREFCFG: "lte_band",1:2:3:4:5:7:8:12:13:14:17:18:19:20:25:26:28:29:30:38:39:42:43:46:48:66 OK'
 		qm=$(echo $OX" " | grep "+QNWPREFCFG:" | tr -d '"' | tr " " ":" | tr "," ":")
-		log "EM160 $qm"
+		log "EM160/RM500 $qm"
 		log " "
 		bd=5
 		msk=""
@@ -96,13 +93,34 @@ quebandmask() {
 		L1=$(encodemask $msk)
 		L2="0"
 		GW="0"
+		if [ $idP = "0800" ]; then
+			ATCMDD='AT+QNWPREFCFG= "nsa_nr5g_band"'
+			OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
+			#OX='AT+QNWPREFCFG= "nsa_nr5g_band" +QNWPREFCFG: "nsa_nr5g_band",1:3:7:20:28:40:41:71:77:78:79 OK'
+			bd=5
+			msk=""
+			L5=$(echo $qm | cut -d: -f"$bd")
+			while [ $L5 != "OK" ]
+			do
+				msk=$msk$L5" "
+				bd=$((bd+1))
+				L5=$(echo $qm | cut -d: -f"$bd")
+			done
+			if [ -z "$msk" ]; then
+				L5=""
+			else
+				L5="0x"$(encodemask $msk)
+			fi
+		fi
 	fi
 	log " "
 	log "LTE Band Mask : $L1"
+	log "5G Band Mask : $L5"
 	log " "
 	uci set modem.modem$CURRMODEM.GW="$GW"
 	uci set modem.modem$CURRMODEM.L1="$L1"
 	uci set modem.modem$CURRMODEM.L2="$L2"
+	uci set modem.modem$CURRMODEM.L5="$L5"
 	uci commit modem
 }
 
@@ -112,15 +130,10 @@ fibomask() {
 	CPORT=$(uci get modem.modem$CURRMODEM.commport)
 	ATCMDD="AT+CGMM"
     model=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
-	#uci set modem.modem$CURRMODEM.model="$model"
 	if [ $idV = "8087" ]; then
 		ATCMDD='AT+XACT?'
 		OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
 		qm=$(echo $OX" " | grep "+XACT:" | tr -d '"' | tr " " ",")
-# Fake FM150 - L850 5G	
-		#OX='AT+GTACT? +GTACT: 20,6,3,1,2,4,5,8,101,102,103,104,105,107,108,112,113,114,125,126,129,130,141,142,143,146,148,166,171,502,505,507,5012,5025,5041,5048,5066,5071,5077,5078 OK'
-		OX='AT+GTACT? +GTACT: 17,3,,102,104,105,107,112,117,130,141,142,143,148,166,171,505,507,5012,5041,5066,5071  OK'
-		qm=$(echo $OX" " | grep "+GTACT:" | tr -d '"' | tr " " ",")	
 	else
 		FM150=$(echo "$model" | grep "FM150")
 		if [ -z $FM150 ]; then

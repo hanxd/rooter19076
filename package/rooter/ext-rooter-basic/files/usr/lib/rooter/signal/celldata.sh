@@ -8,6 +8,37 @@ COMMPORT=$2
 OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "cellinfo.gcom" "$CURRMODEM")
 
 OX=$(echo $OX | tr 'a-z' 'A-Z')
+
+COPS="-"
+COPS_MCC="-"
+COPS_MNC="-"
+COPSX=$(echo $OX | grep -o "+COPS: [01],0,.\+," | cut -d, -f3 | grep -o "[^\"]\+")
+
+if [ "x$COPSX" != "x" ]; then
+	COPS=$COPSX
+fi
+
+COPSX=$(echo $OX | grep -o "+COPS: [01],2,.\+," | cut -d, -f3 | grep -o "[^\"]\+")
+
+if [ "x$COPSX" != "x" ]; then
+	COPS_MCC=${COPSX:0:3}
+	COPS_MNC=${COPSX:3:3}
+	if [ "$COPS" = "-" ]; then
+		COPS=$(awk -F[\;] '/'$COPS'/ {print $2}' $ROOTER/signal/mccmnc.data)
+		[ "x$COPS" = "x" ] && COPS="-"
+	fi
+fi
+
+if [ "$COPS" = "-" ]; then
+	COPS=$(echo "$O" | awk -F[\"] '/^\+COPS: 0,0/ {print $2}')
+	if [ "x$COPS" = "x" ]; then
+		COPS="-"
+		COPS_MCC="-"
+		COPS_MNC="-"
+	fi
+fi
+COPS_MNC=" "$COPS_MNC
+
 OX=$(echo "${OX//[ \"]/}")
 
 REGV=$(echo "$OX" | grep -o "+C5GREG:2,[0-9],[A-F0-9]\{2,6\},[A-F0-9]\{5,10\}")
@@ -55,6 +86,10 @@ else
 		fi
 	fi
 fi
+REGSTAT=$(echo "$REGV" | cut -d, -f2)
+if [ "$REGSTAT" == "5" -a "$COPS" != "-" ]; then
+	COPS_MNC=$COPS_MNC" (Roaming)"
+fi
 if [ -n "$LAC" ]; then
 	LAC_NUM=$(printf "%d" 0x$LAC)
 	LAC_NUM="  ("$LAC_NUM")"
@@ -73,9 +108,14 @@ else
 	RNC_NUM=" ($RNC_NUM)"
 fi
 
-echo 'LAC="'"$LAC"'"' > /tmp/cell$CURRMODEM.file
-echo 'LAC_NUM="'"$LAC_NUM"'"' >> /tmp/cell$CURRMODEM.file
-echo 'CID="'"$CID"'"' >> /tmp/cell$CURRMODEM.file
-echo 'CID_NUM="'"$CID_NUM"'"' >> /tmp/cell$CURRMODEM.file
-echo 'RNC="'"$RNC"'"' >> /tmp/cell$CURRMODEM.file
-echo 'RNC_NUM="'"$RNC_NUM"'"' >> /tmp/cell$CURRMODEM.file
+{
+	echo 'COPS="'"$COPS"'"'
+	echo 'COPS_MCC="'"$COPS_MCC"'"'
+	echo 'COPS_MNC="'"$COPS_MNC"'"'
+	echo 'LAC="'"$LAC"'"'
+	echo 'LAC_NUM="'"$LAC_NUM"'"'
+	echo 'CID="'"$CID"'"'
+	echo 'CID_NUM="'"$CID_NUM"'"'
+	echo 'RNC="'"$RNC"'"'
+	echo 'RNC_NUM="'"$RNC_NUM"'"'
+} > /tmp/cell$CURRMODEM.file
