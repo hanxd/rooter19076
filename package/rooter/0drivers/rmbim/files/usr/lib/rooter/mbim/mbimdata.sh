@@ -88,10 +88,10 @@ manuf=$manuf" "$model
 tid=2
 while [ 1 -eq 1 ]; do
 	tid=2
-	SIGNAL=$(umbim -n -t $tid -d $device signal)
+	#SIGNAL=$(umbim -n -t $tid -d $device signal)
 	tid=$((tid + 1))
-	SIGNAL=$(umbim -n -t $tid -d $device signal)
-	signal=$(echo "$SIGNAL" | awk '/rssi:/ {print $2}')
+	#SIGNAL=$(umbim -n -t $tid -d $device signal)
+	signal=0
 	if [ -e /tmp/monstat$CURRMODEM ]; then
 		source /tmp/monstat$CURRMODEM
 	fi

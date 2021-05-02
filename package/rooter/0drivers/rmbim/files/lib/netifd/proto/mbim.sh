@@ -233,56 +233,37 @@ _proto_mbim_setup() {
 	UP=$(echo "$ATTACH" | awk '/uplinkspeed:/ {print $2}')
 	DOWN=$(echo "$ATTACH" | awk '/downlinkspeed:/ {print $2}')
 	MODE=$(echo "$ATTACH" | awk '/highestavailabledataclass:/ {print $2}')
-	if [ $MODE == "0001" ]; then
+	if [ "$MODE" == "0001" ]; then
 		CLASS="GPRS"
 	fi
-	if [ $MODE == "0002" ]; then
+	if [ "$MODE" == "0002" ]; then
 		CLASS="EDGE"
 	fi
-	if [ $MODE == "0004" ]; then
+	if [ "$MODE" == "0004" ]; then
 		CLASS="UMTS"
 	fi
-	if [ $MODE == "0008" ]; then
+	if [ "$MODE" == "0008" ]; then
 		CLASS="HSDPA"
 	fi
-	if [ $MODE == "0010" ]; then
+	if [ "$MODE" == "0010" ]; then
 		CLASS="HSUPA"
 	fi
-	if [ $MODE == "0020" ]; then
+	if [ "$MODE" == "0020" ]; then
 		CLASS="LTE"
 	fi
 	CUS=${MODE:0:1}
-	if [ $CUS = "8" ]; then
+	if [ "$CUS" = "8" ]; then
 		CLASS="CUSTOM"
 	fi
-	if [ -z $CLASS ]; then
+	if [ -z "$CLASS" ]; then
 		CLASS="UNKNOWN"
 	fi
 
 	log "Connect to network"
-	state="connect"
-	for i in $(seq 30); do
+	while ! umbim $DBG -n -t $tid -d $device connect "$apn" "$auth" "$username" "$password"; do
 		tid=$((tid + 1))
-		case $state in
-		connect)
-			umbim $DBG -d $device -n -t $tid connect "$apn" "$auth" "$username" "$password" >/dev/null
-			retq=$?
-			[ $retq -ne 3 -a $retq -ne 255 ] && state="status"
-			;;
-		status)
-			CONNECT=$(umbim $DBG -d $device -n -t $tid status)
-			retq=$?
-			[ $retq -eq 0 ] && break
-			[ $retq -eq 3 ] && state="connect"
-			;;
-		esac
-		sleep 1
+		sleep 1;
 	done
-	[ -n "$CONNECT" ] && echo "$CONNECT"
-	if [ $retq -ne 0 ]; then
-		log "Connection failed"
-		return 1
-	fi
 	tid=$((tid + 1))
 	
 	log "Get IP config"
@@ -375,8 +356,8 @@ _proto_mbim_setup() {
 
 	tid=$((tid + 1))
 	uci_set_state network $interface tid "$tid"
-	SIGNAL=$(umbim $DBG -n -t $tid -d $device signal)
-	CSQ=$(echo "$SIGNAL" | awk '/rssi:/ {print $2}')
+#	SIGNAL=$(umbim $DBG -n -t $tid -d $device signal)
+#	CSQ=$(echo "$SIGNAL" | awk '/rssi:/ {print $2}')
 
 	$ROOTER/log/logger "Modem #$CURRMODEM Connected"
 	log "Modem $CURRMODEM Connected"
@@ -405,7 +386,7 @@ _proto_mbim_setup() {
 	uci set modem.modem$CURRMODEM.up=$UP" kbps Up"
 	uci set modem.modem$CURRMODEM.mcc=$MCC
 	uci set modem.modem$CURRMODEM.mnc=" "$MNC
-	uci set modem.modem$CURRMODEM.sig=$CSQ
+	uci set modem.modem$CURRMODEM.sig="--"
 	uci set modem.modem$CURRMODEM.mode=$CLASS
 	uci set modem.modem$CURRMODEM.sms=0
 	uci commit modem

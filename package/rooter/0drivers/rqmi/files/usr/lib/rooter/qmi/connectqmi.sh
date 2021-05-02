@@ -77,8 +77,9 @@ if [ "$DATAFORM" = '"raw-ip"' ]; then
 	echo "Y" > /sys/class/net/$ifname/qmi/raw_ip
 fi
 
-uqmi -d $device --fcc-auth
+log "Setting FCC Auth: $(uqmi -s -d "$device" --fcc-auth)"
 sleep 1
+# uqmi -s -d "$device" --sync > /dev/null 2>&1
 
 log "Waiting for network registration"
 while uqmi -s -d "$device" --get-serving-system | grep '"searching"' > /dev/null; do
@@ -95,19 +96,18 @@ cid=`uqmi -s -d "$device" --get-client-id wds`
 uqmi -s -d "$device" --set-client-id wds,"$cid" --set-ip-family ipv4 > /dev/null
 
 ST=$(uqmi -s -d "$device" --set-client-id wds,"$cid" --start-network ${NAPN:+--apn $NAPN} ${auth:+--auth-type $auth} \
-	${username:+--username $username} ${password:+--password $password} --autoconnect)
+	${username:+--username $username} ${password:+--password $password})
 log "Connection returned : $ST"
 
 CONN=$(uqmi -s -d "$device" --get-data-status)
 log "Status is $CONN"
 
-CONNZX=$(uqmi -s -d $device --set-client-id wds,$cid --get-current-settings)
-log "GET-CURRENT-SETTINGS is $CONNZX"
-
-T=$(echo $CONN | grep "disconnected")
-if [ -z $T ]; then
+if [[ -z $(echo "$CONN" | grep -o "disconnected") ]]; then
 	ret=0
 	
+	CONN4=$(uqmi -s -d "$device" --set-client-id wds,"$cid" --get-current-settings)
+	log "GET-CURRENT-SETTINGS is $CONN4"
+
 	cid6=`uqmi -s -d "$device" --get-client-id wds`
 	[ $? -ne 0 ] && {
 		log "Unable to obtain client ID"
@@ -115,10 +115,10 @@ if [ -z $T ]; then
 	}
 	uqmi -s -d "$device" --set-client-id wds,"$cid6" --set-ip-family ipv6 > /dev/null
 	ST6=$(uqmi -s -d "$device" --set-client-id wds,"$cid6" --start-network ${NAPN:+--apn $NAPN} ${auth:+--auth-type $auth} \
-	${username:+--username $username} ${password:+--password $password} --autoconnect)
+	${username:+--username $username} ${password:+--password $password})
 	log "IPv6 Connection returned : $ST6"
-	CONNZX=$(uqmi -s -d $device --set-client-id wds,$cid6 --get-current-settings)
-	CONF6=$(jsonfilter -s $CONNZX -e '@.ipv6')
+	CONN6=$(uqmi -s -d "$device" --set-client-id wds,"$cid6" --get-current-settings)
+	CONF6=$(jsonfilter -s $CONN6 -e '@.ipv6')
 	if [ -n "$CONF6" ];then
 		log "IPv6 settings are $CONF6"
 		touch /tmp/ipv6supp$INTER
@@ -128,17 +128,18 @@ if [ -z $T ]; then
 	
 	if [ $DATAFORM = '"raw-ip"' ]; then
 		log "Handle raw-ip"
-		json_load "$(uqmi -s -d $device --set-client-id wds,$cid --get-current-settings)"
+		json_load "$CONN4"
 		json_select ipv4
 		json_get_vars ip subnet gateway dns1 dns2
-		
-		json_load "$(uqmi -s -d $device --set-client-id wds,$cid6 --get-current-settings)"
-		json_select ipv6
-		json_get_var ip_6 ip
-		json_get_var gateway_6 gateway
-		json_get_var dns1_6 dns1
-		json_get_var dns2_6 dns2
-		json_get_var ip_prefix_length ip-prefix-length
+		if [ -n "$CONF6" ]; then
+			json_load "$CONN6"
+			json_select ipv6
+			json_get_var ip_6 ip
+			json_get_var gateway_6 gateway
+			json_get_var dns1_6 dns1
+			json_get_var dns2_6 dns2
+			json_get_var ip_prefix_length ip-prefix-length
+		fi
 
 		if [ -s /tmp/v4dns$INTER -o -s /tmp/v6dns$INTER ]; then
 			pdns=1
@@ -151,6 +152,7 @@ if [ -z $T ]; then
 		else
 			v4dns="$dns1 $dns2"
 			v6dns="$dns1_6 $dns2_6"
+			echo "$v6dns" > /tmp/v6dns$INTER
 		fi
 
 		if [ $DHCP -eq 0 ]; then

@@ -101,8 +101,10 @@ gpioname[29] = "USB_VBUS"
 model[30] = "mt300n-v2"
 gpio[30] = 11
 gpioname[30] = "usb"
+model[31] = "giga"
+gpio[31] = 16
 
-numodel = 30
+numodel = 31
 
 local file = io.open(mfile, "r")
 if file == nil then

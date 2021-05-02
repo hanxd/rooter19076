@@ -258,6 +258,8 @@ chkraw() {
 		RAW=1
 	elif [ $idV = 2c7c -a $idP = 0800 ]; then
 		RAW=1
+	elif [ $idV = 2c7c -a $idP = 0620 ]; then
+		RAW=1
 	elif [ $idV = 05c6 -a $idP = 9025 ]; then
 		[ $MAN = "Telit" ] || RAW=1
 	elif [ $idV = 05c6 -a $idP = 90db ]; then
