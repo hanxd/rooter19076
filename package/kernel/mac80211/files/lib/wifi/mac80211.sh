@@ -118,20 +118,31 @@ detect_mac80211() {
 
 		if [ -e /etc/customwifi ]; then
 			I=0
-			while IFS= read -r line
+			while IFS=$'\n' read -r line
 			do
 				if [ $I = 0 ];then
-					SSID=$line
+					SSID="$line"
 					I=1
 				else
-					PASSW=$line
-					break
+					if [ $I = 1 ];then
+						SSID5G="$line"
+						I=2
+					else
+						PASSW="$line"
+						break
+					fi
 				fi
 
 			done < /etc/customwifi
 		else
 			SSID="ROOter"
+			SSID5G="ROOter 5G"
 			PASSW="rooter2017"
+		fi
+		if [ $channel = "11" ]; then
+			SSID="$SSID"
+		else
+			SSID="$SSID5G"
 		fi
 
 		uci -q batch <<-EOF
@@ -148,16 +159,10 @@ detect_mac80211() {
 			set wireless.default_radio${devidx}.device=radio${devidx}
 			set wireless.default_radio${devidx}.network=lan
 			set wireless.default_radio${devidx}.mode=ap
-			set wireless.default_radio${devidx}.ssid=$SSID
-			set wireless.default_radio${devidx}.encryption=psk
+			set wireless.default_radio${devidx}.ssid='$SSID'
+			set wireless.default_radio${devidx}.encryption=psk2
 			set wireless.default_radio${devidx}.key=$PASSW
 EOF
-		if [ $channel = "11" ]; then
-			uci set wireless.radio${devidx}.country="US"
-			uci set wireless.radio${devidx}.txpower=30
-		else
-			uci set wireless.radio${devidx}.country="US"
-		fi
 		uci -q commit wireless
 
 		devidx=$(($devidx + 1))
