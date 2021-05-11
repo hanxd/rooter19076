@@ -1,2 +1,3 @@
 config ping 'ping'
 	option enable '0'
+	option delay '40'

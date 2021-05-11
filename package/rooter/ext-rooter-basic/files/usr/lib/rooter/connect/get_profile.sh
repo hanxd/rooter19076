@@ -179,6 +179,8 @@ do_custom() {
 					uci set modem.modeminfo$CURRMODEM.atc=$atc
 					config_get tzone $1 tzone
 					uci set modem.modeminfo$CURRMODEM.tzone=$tzone
+					config_get nodhcp $1 nodhcp
+					uci set modem.modeminfo$CURRMODEM.nodhcp=$nodhcp
 
 					[ -n "$apn" ] || log "This profile has no APN configured !!!"
 
@@ -246,6 +248,7 @@ if [ $MATCH = 0 ]; then
 	uci set modem.modeminfo$CURRMODEM.at=$(uci -q get profile.default.at)
 	uci set modem.modeminfo$CURRMODEM.atc=$(uci -q get profile.default.atc)
 	uci set modem.modeminfo$CURRMODEM.tzone=$(uci -q get profile.default.tzone)
+	uci set modem.modeminfo$CURRMODEM.nodhcp=$(uci -q get profile.default.nodhcp)
 
 	alive=$(uci get profile.default.alive)
 	uci delete modem.pinginfo$CURRMODEM

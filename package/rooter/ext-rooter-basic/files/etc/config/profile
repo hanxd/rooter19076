@@ -1,3 +1,4 @@
+
 config default 'default'
 	option auth '0'
 	option ppp '0'
@@ -8,4 +9,6 @@ config default 'default'
 	option delay '5'
 	option at '0'
 	option apn 'internet'
-	
+	option tzone '0'
+	option nodhcp '0'
+

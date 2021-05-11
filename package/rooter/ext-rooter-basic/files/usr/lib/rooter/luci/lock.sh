@@ -163,14 +163,14 @@ case $uVid in
 	;;
 	"1199" )
 		M1='AT!ENTERCND="A710"'
-		M2='AT!BAND=1F,"Test",0,'$mask64,$maskl2
+		M2='AT!BAND=11,"Test",0,'$mask64,$maskl2
 		log "$M2"
 		OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$M1")
 		log "$OX"
 		ATCMDD="AT+CFUN=1,1"
 		OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$M2")
 		log "$OX"
-		M2='AT!BAND=00;!BAND=1F'
+		M2='AT!BAND=00;!BAND=11'
 		OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$M2")
 		log "$OX"
 		OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")

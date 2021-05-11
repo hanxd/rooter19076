@@ -62,6 +62,11 @@ md.rmempty = false;
 md.default = 5
 md.datatype = "and(uinteger,min(5))"
 
+nl = di:taboption(this_taba, ListValue, "nodhcp", "No DHCP for QMI Modems :");
+nl:value("0", "No")
+nl:value("1", "Yes")
+nl.default=0
+
 ml = di:taboption(this_taba, ListValue, "lock", "Lock Connection to a Provider :");
 ml:value("0", "No")
 ml:value("1", "Yes")
@@ -395,6 +400,11 @@ cmd.optional=false;
 cmd.rmempty = false;
 cmd.default = 5
 cmd.datatype = "and(uinteger,min(5))"
+
+cnl = s:taboption(this_ctaba, ListValue, "nodhcp", "No DHCP for QMI Modems :");
+cnl:value("0", "No")
+cnl:value("1", "Yes")
+cnl.default=0
 
 cml = s:taboption(this_ctaba, ListValue, "lock", "Lock Connection to a Provider :");
 cml:value("0", "No")

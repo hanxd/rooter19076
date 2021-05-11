@@ -732,6 +732,9 @@ if [ $idV = "2cb7" -o $idV = "8087" ]; then
 fi
 CHKPORT=$(uci -q get modem.modem$CURRMODEM.commport)
 if [ -n "$CHKPORT" ]; then
+	if [ -e $ROOTER/simlock.sh ]; then
+		$ROOTER/simlock.sh $CURRMODEM
+	fi
 	$ROOTER/common/gettype.sh $CURRMODEM
 	$ROOTER/connect/get_profile.sh $CURRMODEM
 	INTER=$(uci -q get modem.modeminfo$CURRMODEM.inter)
@@ -779,6 +782,11 @@ if [ -n "$CHKPORT" ]; then
 #		DHCP=0
 #	elif [ $PROT = 2 -a $idV = 03f0 -a $idP = 0857 ]; then
 #		DHCP=0
+	fi
+	NODHCP=$(uci -q get modem.modeminfo$CURRMODEM.nodhcp)
+	if [ $NODHCP = "1" ]; then
+		DHCP=0
+		log " Using QMI No DHCP"
 	fi
 	
 	if [ $DHCP = 1 ]; then

@@ -11,6 +11,10 @@ MODTYPE=$2
 
 CPORT=$(uci get modem.modem$CURRMODEM.commport)
 
+if [ -e $ROOTER/simlock.sh ]; then
+	$ROOTER/simlock.sh $CURRMODEM
+fi
+
 sierrabandmask() {
 	ATCMDD='AT!ENTERCND="A710";!BAND?'
 	OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")

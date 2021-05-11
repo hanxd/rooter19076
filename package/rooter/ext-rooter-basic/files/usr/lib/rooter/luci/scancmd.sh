@@ -182,12 +182,12 @@ case $uVid in
 			;;
 		esac
 		M1='AT!ENTERCND="A710"'
-		M4='AT!BAND=1F,"Test",0,'$M3,$M3X
+		M4='AT!BAND=11,"Test",0,'$M3,$M3X
 		OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$M1")
 		log "$OX"
 		OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$M4")
 		log "$OX"
-		M4='AT!BAND=00;!BAND=1F'
+		M4='AT!BAND=00;!BAND=11'
 		OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$M4")
 		log "$OX"
 	;;
