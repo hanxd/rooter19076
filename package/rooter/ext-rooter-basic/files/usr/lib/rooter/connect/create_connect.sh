@@ -96,8 +96,6 @@ set_dns2() {
 		_DNS2=$pDNS2
 		_DNS3=$pDNS3
 		_DNS4=$pDNS4
-		v4dns=""
-		v6dns=""
 	else
 		log "Using Provider assigned DNS"
 		pdns=0
@@ -105,8 +103,6 @@ set_dns2() {
 		_DNS2=$DNS2
 		_DNS3=$DNS3
 		_DNS4=$DNS4
-		v4dns="$DNS1 $DNS2"
-		v6dns="$DNS3 $DNS4"
 	fi
 
 	aDNS="$_DNS1 $_DNS2 $_DNS3 $_DNS4"
@@ -120,11 +116,7 @@ set_dns2() {
 	done
 
 	bDNS=$(echo $bDNS)
-	if [ "$pdns" -eq 0 -a "$v6cap" -eq 2 ]; then
-		uci set network.wan$INTER.dns="$v4dns"
-	else
-		uci set network.wan$INTER.dns="$bDNS"
-	fi
+	uci set network.wan$INTER.dns="$bDNS"
 }
 
 
@@ -258,8 +250,6 @@ chkraw() {
 		RAW=1
 	elif [ $idV = 2c7c -a $idP = 0800 ]; then
 		RAW=1
-	elif [ $idV = 2c7c -a $idP = 0620 ]; then
-		RAW=1
 	elif [ $idV = 05c6 -a $idP = 9025 ]; then
 		[ $MAN = "Telit" ] || RAW=1
 	elif [ $idV = 05c6 -a $idP = 90db ]; then
@@ -297,29 +287,57 @@ addv6() {
 	. /lib/netifd/netifd-proto.sh
 	log "Adding IPv6 dynamic interface"
 	local interface=wan$INTER
-	local DNSV
 	json_init
 	json_add_string name "${interface}_6"
 	json_add_string ifname "@$interface"
 	json_add_string proto "dhcpv6"
 	json_add_string extendprefix 1
 	[ "$pdns" = 1 ] && json_add_boolean peerdns 0
-	if [ -z "$v6dns" ]; then
-		if [ -s /tmp/v6dns$INTER ]; then
-			v6dns=$(cat /tmp/v6dns$INTER 2>/dev/null)
-		fi
-	fi
-	if [ -n "$v6dns" ]; then
-		json_add_boolean peerdns 0
-		json_add_array dns
-			for DNSV in $(echo "$v6dns"); do
-				json_add_string "" "$DNSV"
-			done
-		json_close_array
-	fi
 	proto_add_dynamic_defaults
 	json_close_object
 	ubus call network add_dynamic "$(json_dump)"
+}
+
+get_tty() {
+# $1 is bInterfaceNumber value
+	local IfNum OX
+	IfNum=$1
+	for TTYD in $(echo "$TTYDEVS"); do
+		if [ ! "$ACM" = 1 ]; then
+			OX=$(cat /sys/class/tty/$TTYD/../../../bInterfaceNumber | grep "$IfNum")
+		else
+			OX=$(cat /sys/class/tty/$TTYD/../../bInterfaceNumber | grep "$IfNum")
+		fi
+		if [ $? = 0 ]; then
+			CPORT=$(echo $TTYD | grep -o "[[:digit:]]\+")
+			break
+		else
+			CPORT=""
+		fi
+	done
+}
+
+get_tty_fix() {
+# $1 is fixed ttyUSB or ttyACM port number
+	local POS
+	POS=`expr 1 + $1`
+	CPORT=$(echo "$TTYDEVS" | cut -d' ' -f"$POS" | grep -o "[[:digit:]]\+")
+}
+
+get_tty_ncm() {
+	local IfProt OX
+	PROTS="72 62 42 32 12 10 02 2"
+	for IfProt in $PROTS; do
+		for TTYD in $(echo "$TTYDEVS"); do
+			OX=$(cat /sys/class/tty/$TTYD/../../../bInterfaceProtocol | grep -w "$IfProt")
+			if [ $? = 0 ]; then
+				CPORT=$(echo $TTYD | grep -o "[[:digit:]]\+")
+				break 2
+			else
+				CPORT=""
+			fi
+		done
+	done
 }
 
 CURRMODEM=$1
@@ -390,30 +408,25 @@ else
 	save_variables
 	rm -f /tmp/usbwait
 
+MDEVICE=$(uci -q get modem.modem$CURRMODEM.device)
+OX=$(ls /sys/bus/usb/devices/"$MDEVICE":*/ | grep -o ttyUSB[0-9])
+if [ $? -ne 0 ]; then
+	OX=$(ls /sys/bus/usb/devices/"$MDEVICE":*/tty/ | grep -o ttyACM[0-9])
+	ACM=1
+fi
+TTYDEVS=$(echo "$OX" | tr '\n' ' ')
+TTYDEVS=$(echo "$TTYDEVS")
+log Modem at $MDEVICE is a parent of $TTYDEVS
+
 	case $PROT in
 #
 # Sierra Direct-IP modem comm port
 #
 	"1" )
 		log "Start Direct-IP Connection"
-		while [ ! -e /dev/ttyUSB$BASEP ]; do
-			sleep 1
-		done
-		sleep $DELAY
-
-		OX=$(grep . /sys/class/tty/ttyUSB*/../../../bInterfaceNumber | grep ":03" | cut -d'/' -f5)
-		if [ $BASEP -eq 0 ]; then
-			CPORT=$(echo $OX | cut -d' ' -f1)
-		else
-			CPORT=$(echo $OX | cut -d' ' -f2)
-		fi
-		CPORT=$(echo $CPORT | grep -o "[[:digit:]]\+")
-		CPORT=`expr $CPORT - $BASEP`
-
+		get_tty 03
 		lua $ROOTER/common/modemchk.lua "$idV" "$idP" "$CPORT" "$CPORT"
 		source /tmp/parmpass
-		CPORT=`expr $CPORT + $BASEP`
-
 		log "Sierra Comm Port : /dev/ttyUSB$CPORT"
 		;;
 #
@@ -428,36 +441,22 @@ else
 
 		chksierra
 		if [ $SIERRAID -eq 1 ]; then
-			OX=$(grep . /sys/class/tty/ttyUSB*/../../../bInterfaceNumber | grep ":03" | cut -d'/' -f5)
-			if [ $BASEP -eq 0 ]; then
-				CPORT=$(echo $OX | cut -d' ' -f1)
-			else
-				CPORT=$(echo $OX | cut -d' ' -f2)
-			fi
-			CPORT=$(echo $CPORT | grep -o "[[:digit:]]\+")
-			CPORT=`expr $CPORT - $BASEP`
+			get_tty 03
 		else
 			if [ $idV = 1bc7 ]; then
-				CPORT=2
-			elif [ $idV = 2c7c ]; then
-				case $idP in
-					"0620"|"0800" )
-						CPORT=2
-					;;
-					* )
-						CPORT=1
-					;;
-				esac
+				TPORT=2
+			elif [ $idV = 2c7c -a $idP = 0620 ]; then
+				TPORT=2
 			elif [ $idV = 05c6 -a $idP = 9025 ]; then
-				[ $MAN = "Telit" ] || CPORT=2
+				[ $MAN = "Telit" ] || TPORT=2
 			else
-				CPORT=1
+				TPORT=1
 			fi
+			get_tty_fix $TPORT
 		fi
+
 		lua $ROOTER/common/modemchk.lua "$idV" "$idP" "$CPORT" "$CPORT"
 		source /tmp/parmpass
-
-		CPORT=`expr $CPORT + $BASEP`
 
 		log "QMI Comm Port : /dev/ttyUSB$CPORT"
 		device=/dev/cdc-wdm$WDMNX
@@ -501,14 +500,12 @@ else
 			IfNum=03
 		fi
 		if [ $SIERRAID -eq 1 ]; then
-			OX=$(grep . /sys/class/tty/ttyUSB*/../../../bInterfaceNumber | grep ":$IfNum" | cut -d'/' -f5)
-			if [ -z "$OX" ]; then
+			get_tty $IfNum
+			if [ -z "$CPORT" ]; then
 				if [ $idP = "90d3" ]; then
-					CPORT=0
-					CPORT=`expr $CPORT - $BASEP`
+					get_tty_fix 0
 					lua $ROOTER/common/modemchk.lua "$idV" "$idP" "$CPORT" "$CPORT"
 					source /tmp/parmpass
-					CPORT=`expr $CPORT + $BASEP`
 					uci set modem.modem$CURRMODEM.commport=$CPORT
 					if [ -n "$CPORT" ]; then
 						uci set modem.modem$CURRMODEM.proto="30"
@@ -520,32 +517,21 @@ else
 					log "No MBIM Comm Port"
 				fi
 			else
-				OX=$(grep . /sys/class/tty/ttyUSB*/../../../bInterfaceNumber | grep ":03" | cut -d'/' -f5)
-				if [ $BASEP -eq 0 ]; then
-					CPORT=$(echo $OX | cut -d' ' -f1)
-				else
-						CPORT=$(echo $OX | cut -d' ' -f2)
-				fi
-				CPORT=$(echo $CPORT | grep -o "[[:digit:]]\+")
-				CPORT=`expr $CPORT - $BASEP`
 				lua $ROOTER/common/modemchk.lua "$idV" "$idP" "$CPORT" "$CPORT"
 				source /tmp/parmpass
-				CPORT=`expr $CPORT + $BASEP`
 				uci set modem.modem$CURRMODEM.commport=$CPORT
-				if [ -n "$CPORT" ]; then
-					uci set modem.modem$CURRMODEM.proto="30"
-				fi
+				uci set modem.modem$CURRMODEM.proto="30"
 				log "MBIM Comm Port : /dev/ttyUSB$CPORT"
 			fi
 		else
 			chktelitmbim
 			if [ $TELITMBIM -eq 1 ]; then
-				OX=$(grep . /sys/class/tty/ttyACM*/../../bInterfaceNumber | grep ":00" | cut -d'/' -f5)
-				ACMPORT=$(echo $OX | grep -o "[[:digit:]]\+")
-				CPORT=9$ACMPORT
-				ln -s /dev/ttyACM$ACMPORT /dev/ttyUSB$CPORT
+				get_tty 00
 				lua $ROOTER/common/modemchk.lua "$idV" "$idP" "$CPORT" "$CPORT"
 				source /tmp/parmpass
+				ACMPORT=$CPORT
+				CPORT=9$ACMPORT
+				ln -fs /dev/ttyACM$ACMPORT /dev/ttyUSB$CPORT
 				uci set modem.modem$CURRMODEM.commport=$CPORT
 				if [ -n "$CPORT" ]; then
 					uci set modem.modem$CURRMODEM.proto="30"
@@ -554,50 +540,50 @@ else
 			else
 				chkT77
 				if [ $T77 -eq 1 ]; then
-				lua $ROOTER/common/modemchk.lua "$idV" "$idP" "0" "0"
+					get_tty_fix 0
+					lua $ROOTER/common/modemchk.lua "$idV" "$idP" "$CPORT" "$CPORT"
 					source /tmp/parmpass
-					CPORT=`expr $CPORT + $BASEP`
 					uci set modem.modem$CURRMODEM.commport=$CPORT
 					uci set modem.modem$CURRMODEM.proto="30"
 					log "MBIM Comm Port : /dev/ttyUSB$CPORT"
 				else
 					case $idV in
 						"2c7c"|"05c6" )
-							lua $ROOTER/common/modemchk.lua "$idV" "$idP" "3" "2"
+							get_tty_fix 2
+							DPORT=`expr 1 + $CPORT`
+							lua $ROOTER/common/modemchk.lua "$idV" "$idP" "$DPORT" "$CPORT"
 							source /tmp/parmpass
-							CPORT=`expr $CPORT + $BASEP`
 							uci set modem.modem$CURRMODEM.commport=$CPORT
 							uci set modem.modem$CURRMODEM.proto="30"
 							log "MBIM Comm Port : /dev/ttyUSB$CPORT"
 						;;
 						"1bc7" )
-							lua $ROOTER/common/modemchk.lua "$idV" "$idP" "1" "2"
+							get_tty_fix 2
+							DPORT=`expr $CPORT - 1`
+							lua $ROOTER/common/modemchk.lua "$idV" "$idP" "$DPORT" "$CPORT"
 							source /tmp/parmpass
-							CPORT=`expr $CPORT + $BASEP`
 							uci set modem.modem$CURRMODEM.commport=$CPORT
 							uci set modem.modem$CURRMODEM.proto="30"
 							log "MBIM Comm Port : /dev/ttyUSB$CPORT"
 						;;
 						"03f0" )
 							if [ $idP = 0a57 ]; then
-								lua $ROOTER/common/modemchk.lua "$idV" "$idP" "1" "2"
+								get_tty_fix 2
+								DPORT=`expr $CPORT - 1`
+								lua $ROOTER/common/modemchk.lua "$idV" "$idP" "$DPORT" "$CPORT"
 								source /tmp/parmpass
-								CPORT=`expr $CPORT + $BASEP`
 								uci set modem.modem$CURRMODEM.commport=$CPORT
 								uci set modem.modem$CURRMODEM.proto="30"
 								log "MBIM Comm Port : /dev/ttyUSB$CPORT"
 							fi
 						;;
 						"2cb7" )
-							lua $ROOTER/common/modemchk.lua "$idV" "$idP" "0" "0"
+							get_tty_fix 0
+							lua $ROOTER/common/modemchk.lua "$idV" "$idP" "$CPORT" "$CPORT"
 							source /tmp/parmpass
-							if [ ! -e /dev/ttyUSB0 ]; then
-								ACMPORT=`expr $CPORT + $BASEP`
-								CPORT="8$ACMPORT"
-								ln -fs /dev/ttyACM$ACMPORT /dev/ttyUSB$CPORT
-							else
-								CPORT=`expr $CPORT + $BASEP`
-							fi
+							ACMPORT=$CPORT
+							CPORT="8$ACMPORT"
+							ln -fs /dev/ttyACM$ACMPORT /dev/ttyUSB$CPORT
 
 							uci set modem.modem$CURRMODEM.commport=$CPORT
 							uci set modem.modem$CURRMODEM.proto="30"
@@ -632,23 +618,26 @@ else
 		esac
 		sleep $DELAY
 
-		cat /sys/kernel/debug/usb/devices > /tmp/wdrv
-		$ROOTER/ncmfind.lua $idV $idP
-		retval=$?
-		rm -f /tmp/wdrv
-		lua $ROOTER/common/modemchk.lua "$idV" "$idP" "$retval" "$retval"
+#		cat /sys/kernel/debug/usb/devices > /tmp/wdrv
+#		$ROOTER/ncmfind.lua $idV $idP
+#		retval=$?
+#		rm -f /tmp/wdrv
+#		lua $ROOTER/common/modemchk.lua "$idV" "$idP" "$retval" "$retval"
+
+		get_tty_ncm
+		lua $ROOTER/common/modemchk.lua "$idV" "$idP" "$CPORT" "$CPORT"
 		source /tmp/parmpass
 
-		CPORT=`expr $CPORT + $BASEP`
+#		CPORT=`expr $CPORT + $BASEP`
 
 		log "NCM Comm Port : /dev/ttyUSB$CPORT"
 		;;
 	"28" )
 		log "Start Fibocom NCM Connection"
-		lua $ROOTER/common/modemchk.lua "$idV" "$idP" "0" "0"
+		get_tty 00
+		lua $ROOTER/common/modemchk.lua "$idV" "$idP" "$CPORT" "$CPORT"
 		source /tmp/parmpass
-		OX=$(grep . /sys/class/tty/ttyACM*/../../bInterfaceNumber | grep ":00" | cut -d'/' -f5)
-		ACMPORT=$(echo $OX | grep -o "[[:digit:]]\+")
+		ACMPORT=$CPORT
 		CPORT="8$ACMPORT"
 		ln -fs /dev/ttyACM$ACMPORT /dev/ttyUSB$CPORT
 		log "Fibocom NCM Comm Port : /dev/ttyUSB$CPORT"
@@ -732,9 +721,6 @@ if [ $idV = "2cb7" -o $idV = "8087" ]; then
 fi
 CHKPORT=$(uci -q get modem.modem$CURRMODEM.commport)
 if [ -n "$CHKPORT" ]; then
-	if [ -e $ROOTER/simlock.sh ]; then
-		$ROOTER/simlock.sh $CURRMODEM
-	fi
 	$ROOTER/common/gettype.sh $CURRMODEM
 	$ROOTER/connect/get_profile.sh $CURRMODEM
 	INTER=$(uci -q get modem.modeminfo$CURRMODEM.inter)
@@ -772,8 +758,6 @@ if [ -n "$CHKPORT" ]; then
 
 	DHCP=1
 	if [ $PROT = 28 ]; then
-		DHCP=0
-	elif [ $PROT = 3 -o $PROT = 30 ]; then
 		DHCP=0
 	elif [ $PROT = 2 -a $idV = 05c6 -a $idP = 9025 ]; then
 		[ $MAN = "Telit" ] || DHCP=0

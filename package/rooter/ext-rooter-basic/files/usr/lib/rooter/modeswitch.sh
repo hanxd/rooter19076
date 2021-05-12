@@ -185,17 +185,13 @@ if [ "$ACTION" = add ]; then
 #
 	if [ $idV = 13b1 -a $idP = 0041 ]; then
 		exit 0
-	fi
-	if [ $idV = 2357 -a $idP = 0601 ]; then
+	elif [ $idV = 2357 -a $idP = 0601 ]; then
 		exit 0
-	fi
-	if [ $idV = 0b95 -a $idP = 772b ]; then
+	elif [ $idV = 0b95 -a $idP = 772b ]; then
 		exit 0
-	fi
-	if [ $idV = 0b95 -a $idP = 1790 ]; then
+	elif [ $idV = 0b95 -a $idP = 1790 ]; then
 		exit 0
-	fi
-	if [ $idV = 0bda -a $idP = 8152 ]; then
+	elif [ $idV = 0bda -a $idP = 8152 ]; then
 		exit 0
 	fi
 
@@ -304,9 +300,17 @@ if [ "$ACTION" = add ]; then
 		retval=0
 	fi
 
-	bConfig=$(cat /sys/bus/usb/devices/$DEVICENAME/bConfigurationValue)
-	bNumConfs=$(cat /sys/bus/usb/devices/$DEVICENAME/bNumConfigurations)
-	log "Found Modem at $DEVICENAME in Cfg#= $bConfig from $bNumConfs available"
+	while : ; do
+		bConfig=$(cat /sys/bus/usb/devices/$DEVICENAME/bConfigurationValue)
+		bNumConfs=$(cat /sys/bus/usb/devices/$DEVICENAME/bNumConfigurations)
+		if [ -n "$bConfig" -a -n "$bNumConfs" ]; then
+			log "Found Modem at $DEVICENAME in Cfg#= $bConfig from $bNumConfs available"
+			break
+		else
+			sleep 1
+		fi
+	done
+
 	FORCEQMI='03f0:0857 1bc7:1900'
 	if echo $FORCEQMI | grep -q -i "$FILEN"; then
 		bestcfg=1
