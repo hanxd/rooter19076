@@ -97,12 +97,12 @@ model[28] = "ap147"
 gpio[28] = 13
 model[29] = "ar750s"
 gpio[29] = 7
-gpioname[29] = "USB_VBUS"
 model[30] = "mt300n-v2"
 gpio[30] = 11
 gpioname[30] = "usb"
 model[31] = "giga"
 gpio[31] = 16
+gpioname[31] = "power_usb"
 
 numodel = 31
 
