@@ -12,7 +12,7 @@ read_ssc() {
 	if [ -n "$SLBAND" ]; then
 		SLBAND=$(echo $SLBAND | grep -o "[0-9]\+")
 		SLBAND=$(printf "<br />B%d" $SLBAND)
-		BWD=$(echo $OX | grep -o " LTE "$SSCx" BW : [.012345]\+ LTE")
+		BWD=$(echo $OX | grep -o " LTE "$SSCx" BW : [.012345]\+ [ML]")
 		BWD=$(echo $BWD | grep -o " BW : [.012345]\+" | grep -o "[.012345]\+")
 		if [ -n "$BWD" ]; then
 			SLBAND=$SLBAND$(printf " (CA, Bandwidth %s MHz)" $BWD)
@@ -108,7 +108,7 @@ case $RAT in
 		LBAND=$(echo $OX | grep -o "LTE BAND: B[0-9]\+ LTE BW: [.012345]\+ MHZ" | grep -o "[.0-9]\+")
 		LBAND=$(printf "B%d (Bandwidth %s MHz)" $LBAND)
 		CHANNEL=$(echo $OX | grep -o "LTE RX CHAN: [0-9]\{1,6\}" | grep -o "[0-9]\+")
-		SLBAND=$(echo $OX | grep -o " ACTIVE LTE SCELL BAND:[ ]*B[0-9]\+ LTE SCELL BW: [.012345]\+ MHZ")
+		SLBAND=$(echo $OX | grep -o " ACTIVE LTE SCELL BAND:[ ]*B[0-9]\+ LTE SCELL BW:[ ]*[.012345]\+ MHZ")
 		if [ -n "$SLBAND" ]; then
 			SLBAND=$(echo $SLBAND | grep -o "[.0-9]\+")
 			SLBAND=$(printf "<br />B%d (CA, Bandwidth %s MHz)" $SLBAND)
@@ -116,9 +116,9 @@ case $RAT in
 			XTRACHAN=$(echo $OX | grep -o " LTE SCELL CHAN:[0-9]\+" | grep -o "[0-9]\{2,6\}")
 			CHANNEL=$CHANNEL", "$XTRACHAN
 		fi
-		SSCLIST=$(echo $OX | grep -o "LTE SSC[0-9] STATE:[ ]\?ACTIVE" | grep -o "[0-9]")
+		SSCLIST=$(echo $OX | grep -o "LTE S[CS]C[0-9] STATE:[ ]\?ACTIVE" | grep -o "[0-9]")
 		for SSCVAL in $(echo "$SSCLIST"); do
-			SSCx="SSC"$SSCVAL
+			SSCx="S[CS]C"$SSCVAL
 			read_ssc
 		done
 		if [ -n "$LTEINFO" ]; then
@@ -154,9 +154,9 @@ case $RAT in
 			NCHAN=$(echo $OX | grep -o "NR5G RX CHAN: [0-9]\{6\}" | cut -d' ' -f4)
 			CHANNEL=$CHANNEL", "$NCHAN
 		fi
-		SSCLIST=$(echo $OX | grep -o "LTE SSC[0-9] STATE:[ ]\?ACTIVE" | grep -o "[0-9]")
+		SSCLIST=$(echo $OX | grep -o "LTE S[CS]C[0-9] STATE:[ ]\?ACTIVE" | grep -o "[0-9]")
 		for SSCVAL in $(echo "$SSCLIST"); do
-			SSCx="SSC"$SSCVAL
+			SSCx="S[CS]C"$SSCVAL
 			read_ssc
 		done
 		RSCP=$(echo $OX | grep -o "PCC RXM RSRP: -[0-9]\{2,3\} " | cut -d' ' -f4)
