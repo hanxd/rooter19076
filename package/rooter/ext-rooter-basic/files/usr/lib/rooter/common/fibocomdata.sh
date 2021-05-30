@@ -85,6 +85,7 @@ LBAND="-"
 PCI="-"
 CTEMP="-"
 SINR=""
+COPS_MCC=""
 
 CSQ=$(echo $OX | grep -o "+CSQ: [0-9]\{1,2\}" | grep -o "[0-9]\{1,2\}")
 if [ "$CSQ" = "99" ]; then
@@ -98,6 +99,7 @@ else
 	CSQ_PER="-"
 	CSQ_RSSI="-"
 fi
+
 if [ -n "$SERVING" ]; then
 	MODE=$(echo $SERVING | grep -o "+GTCCINFO: .\+ SERVICE CELL:")
 	LENM=${#MODE}
@@ -125,6 +127,17 @@ else
 fi
 CADATA3=$(echo $OX | grep -o "$REGXf")
 if [ -n "$GTCCDATA" ]; then
+	COPS_MCC=$(echo $GTCCDATA | cut -d, -f3)
+	COPS_MNC=$(echo $GTCCDATA | cut -d, -f4)
+	COPX=""
+	COPN=$(echo $OX" " | grep -o "+COPN: .\+ OK " | tr " " "," | tr -d '"' )
+	if [ -n "$COPN" ]; then
+		COPP=$(echo $COPN" " | sed "s/.*\($COPS_MCC$COPS_MNC,.*\)\,/\1/")
+		if [ -n "$COPP" ]; then
+			COPX=$(echo $COPP | cut -d, -f2)
+		fi
+	fi
+
 	LBAND=""
 	CHANNEL=""
 	RSCP=""
@@ -357,7 +370,7 @@ if [ -n "$MRAT" ]; then
 		NETMODE="7" ;;
 	"14" )
 		NETMODE="9" ;;
-	"17" )
+	"17"|"20" )
 		NETMODE="8" ;;
 	* )
 		NETMODE="1" ;;
@@ -408,3 +421,10 @@ fi
 	echo 'TEMP="'"$CTEMP"'"'
 	echo 'SINR="'"$SINR"'"'
 }  > /tmp/signal$CURRMODEM.file
+if [ -n "$COPS_MCC" ]; then
+	echo 'COPS_MCC="'"$COPS_MCC"'"' >> /tmp/signal$CURRMODEM.file
+	echo 'COPS_MNC="'"$COPS_MNC"'"' >> /tmp/signal$CURRMODEM.file
+fi
+if [ -n "$COPX" ]; then
+	echo 'COPS="'"$COPX"'"' >> /tmp/signal$CURRMODEM.file
+fi

@@ -137,27 +137,49 @@ GW=$(uci -q get modem.modem$CURRMODEM.GW)
 export TIMEOUT="5"
 case $uVid in
 	"2c7c" )
+		M5=""
 		M2='AT+QCFG="band",0,'$mask',0'
 		if [ $uPid = 0620 ]; then
 			EM20=$(echo $model | grep "EM20")
-			if [ -z $EM20 ]; then
+			if [ -z "$EM20" ]; then #EM160
 				fibdecode $mask 1 1
 				M2='AT+QNWPREFCFG="lte_band",'$lst
-			else
-				fibdecode $mask 1 1
-				M2F='AT+QNWPREFCFG="lte_band",'$lst
-				log " "
-				log "Fake EM160 Locking Cmd :  $M2F"
-				log " "
+			else # Fake EM160 RM500
+				if [ -e /etc/fake ]; then
+					fibdecode $mask 1 1
+					M2F='AT+QNWPREFCFG="lte_band",'$lst
+					if [ ! -z $mask5g ]; then
+						fibdecode $mask5g 1 1
+						M5F='AT+QNWPREFCFG="nsa_nr5g_band",'$lst
+					fi
+					log " "
+					log "Fake LTE Locking Cmd :  $M2F"
+					log "Fake 5G Locking Cmd :  $M5F"
+					log " "
+					exit 0
+				fi
+			fi
+		fi
+		if [ $uPid = 0800 ]; then
+			fibdecode $mask 1 1
+			M2='AT+QNWPREFCFG="lte_band",'$lst
+			if [ ! -z $mask5g ]; then
+				fibdecode $mask5g 1 1
+				M5='AT+QNWPREFCFG="nsa_nr5g_band",'$lst
 			fi
 		fi
 		log " "
 		log "Locking Cmd : $M2"
+		log "Locking Cmd : $M5"
 		log " "
 		ATCMDD="AT"
 		NOCFUN=$uVid
 		OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$M2")
+		if [ ! -z $M5 ]; then
+			OX5=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$M5")
+		fi
 		log "Locking Cmd Response : $OX"
+		log "Locking Cmd Response : $OX5"
 		log " "
 		OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
 	;;
@@ -208,6 +230,8 @@ case $uVid in
 			if [ ! -z $mask5g ]; then
 				fibdecode $mask5g 5 0
 				lst=","$lst
+			else
+				L1="4,3,"
 			fi
 		fi
 		ATCMDD="AT+""$COMM"="$L1$lte$lst"

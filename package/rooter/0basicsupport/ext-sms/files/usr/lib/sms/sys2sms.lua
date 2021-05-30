@@ -19,7 +19,7 @@ if #oaddr > 11 then
 end
 
 if #txt == 0 then
-	txt = "Usage: /tmp/lib/sms/sys2sms.sh 'from' 'text to write here'"
+	txt = "Usage: /usr/lib/sms/sys2sms.sh 'from' 'text to write here'"
 end
 
 utf8togsm.chktxt(txt)
@@ -80,3 +80,4 @@ if isok then
 	pdul = string.format("%03d", (math.floor(#pdu / 2) - 1))
 	os.execute("echo " .. pdul .. " "  .. pdu .. " > /tmp/pdu" .. pid)
 end
+

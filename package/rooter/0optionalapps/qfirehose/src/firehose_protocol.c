@@ -19,6 +19,7 @@
 
 extern unsigned q_erase_all_before_download;
 extern int update_transfer_bytes(long long bytes_cur);
+extern int show_progress();
 
 struct fh_configure_cmd {
     const char *type;
@@ -47,6 +48,7 @@ struct fh_erase_cmd {
 struct fh_program_cmd {
     const char *type;
     char *filename;
+    uint32_t filesz;
     uint32_t PAGES_PER_BLOCK;
     uint32_t SECTOR_SIZE_IN_BYTES;
     char label[32];
@@ -71,6 +73,11 @@ struct fh_cmd_header {
     const char *type;
 };
 
+struct fh_vendor_defines {
+    const char *type; // "vendor"
+    char buffer[256];
+};
+
 struct fh_cmd {
     union {
         struct fh_cmd_header cmd;
@@ -79,6 +86,7 @@ struct fh_cmd {
         struct fh_program_cmd program;
         struct fh_response_cmd response;
         struct fh_log_cmd log;
+        struct fh_vendor_defines vdef;
     };
     int part_upgrade;
 };
@@ -89,7 +97,7 @@ struct fh_data {
     unsigned MaxPayloadSizeToTargetInBytes;
     unsigned fh_cmd_count;
     unsigned ZlpAwareHost;
-    struct fh_cmd fh_cmd_table[64]; //AG35 have more than 16 partition
+    struct fh_cmd fh_cmd_table[128]; //AG525 have more than 64 partition
     
     unsigned xml_size;
     char xml_buf[1024];
@@ -132,7 +140,12 @@ static int fh_parse_xml_line(const char *xml_line, struct fh_cmd *fh_cmd) {
     char *pret;
     
     memset(fh_cmd, 0, sizeof( struct fh_cmd));
-    if (!strncmp(xml_line, "<erase ", strlen("<erase "))) {
+    if (strstr(xml_line, "vendor=\"quectel\"")) {
+        fh_cmd->vdef.type = "vendor";
+        snprintf(fh_cmd->vdef.buffer, sizeof(fh_cmd->vdef.buffer), "%s", xml_line);
+        return 0;
+    }
+    else if (!strncmp(xml_line, "<erase ", strlen("<erase "))) {
         fh_cmd->erase.type = "erase";
         if ((pchar = fh_xml_get_value(xml_line, "PAGES_PER_BLOCK")))
             fh_cmd->erase.PAGES_PER_BLOCK = atoi(pchar);
@@ -216,7 +229,7 @@ static int fh_parse_xml_line(const char *xml_line, struct fh_cmd *fh_cmd) {
 static int fh_parse_xml_file(struct fh_data *fh_data, const char *xml_file) {
     FILE *fp = fopen(xml_file, "rb");
     
-    if (fp < 0) {
+    if (fp == NULL) {
         dbg_time("%s fail to fopen(%s), errno: %d (%s)\n", __func__, xml_file, errno, strerror(errno));
         error_return();
     }
@@ -241,7 +254,10 @@ static int fh_parse_xml_file(struct fh_data *fh_data, const char *xml_file) {
 		}
 
 __fh_parse_xml_line:		
-        if (xml_line && (strstr(xml_line, "<erase ") || strstr(xml_line, "<program "))) {
+        if (xml_line &&
+                    (strstr(xml_line, "<erase ") || 
+                    strstr(xml_line, "<program ") || 
+                    strstr(xml_line, "vendor=\"quectel\""))) {
             if (!fh_parse_xml_line(xml_line, &fh_data->fh_cmd_table[fh_data->fh_cmd_count]))
                 fh_data->fh_cmd_count++;
         }
@@ -285,8 +301,10 @@ static int fh_fixup_program_cmd(struct fh_data *fh_data, struct fh_cmd *fh_cmd, 
    if (filesize <= 0) {
         dbg_time("fail to ftell %s, errno: %d (%s)\n", full_path, errno, strerror(errno));
         fh_cmd->program.num_partition_sectors = 0;
+        fh_cmd->program.filesz = 0;
         error_return();
    }
+   fh_cmd->program.filesz = filesize;
 
     fh_cmd->program.num_partition_sectors = filesize/fh_cmd->program.SECTOR_SIZE_IN_BYTES;
     if (filesize%fh_cmd->program.SECTOR_SIZE_IN_BYTES)
@@ -394,7 +412,10 @@ static int fh_send_cmd(struct fh_data *fh_data, const struct fh_cmd *fh_cmd) {
     snprintf(xml_buf + strlen(xml_buf), xml_size, "<data>\n");
 
     pstart = xml_buf + strlen(xml_buf);
-    if (strstr(fh_cmd->cmd.type, "erase")) {
+    if (strstr(fh_cmd->cmd.type, "vendor")) {
+        snprintf(xml_buf + strlen(xml_buf), xml_size, "%s", fh_cmd->vdef.buffer);
+    }
+    else if (strstr(fh_cmd->cmd.type, "erase")) {
         if (fh_cmd->erase.label[0] && fh_cmd->erase.last_sector)
         snprintf(xml_buf + strlen(xml_buf), xml_size, 
             "<erase PAGES_PER_BLOCK=\"%d\" SECTOR_SIZE_IN_BYTES=\"%d\" label=\"%s\" last_sector=\"%d\" num_partition_sectors=\"%d\" physical_partition_number=\"%d\" start_sector=\"%d\" />",  
@@ -537,9 +558,15 @@ static int fh_send_rawmode_image(struct fh_data *fh_data, const struct fh_cmd *f
     fseek(fp, 0, SEEK_SET);        
 
     dbg_time("send %s, filesize=%zd\n", unix_filename, filesize);
+    int idx = -1;
     while (filesend < filesize) {
         size_t reads = fread(pbuf, 1, fh_data->MaxPayloadSizeToTargetInBytes, fp);
         update_transfer_bytes(reads);
+        if (!((++idx) % 10)) {
+            printf(".");
+            fflush(stdout);
+        }
+
         if (reads > 0) {
             if (reads % fh_cmd->program.SECTOR_SIZE_IN_BYTES) {
                 memset((uint8_t *)pbuf + reads, 0, fh_cmd->program.SECTOR_SIZE_IN_BYTES - (reads % fh_cmd->program.SECTOR_SIZE_IN_BYTES));
@@ -557,6 +584,8 @@ static int fh_send_rawmode_image(struct fh_data *fh_data, const struct fh_cmd *f
             break;
         }
     }
+    printf("\n");
+    show_progress();
     dbg_time("send finished\n");
 
     fclose(fp);   
@@ -567,6 +596,82 @@ static int fh_send_rawmode_image(struct fh_data *fh_data, const struct fh_cmd *f
         return 0;
 
     error_return();
+}
+
+#define SBL_OPT_ERASE   0
+#define SBL_OPT_PROGRAM 1
+/* optimise command sequence, erase sbl first last program sbl */
+static int fh_process_sbl(struct fh_data *fh_data, int opt)
+{
+    struct fh_cmd *fh_cmd = NULL;
+    struct fh_cmd fh_rx_cmd;
+    unsigned int x;
+    for (x = 0; x < fh_data->fh_cmd_count; x++) {
+        fh_cmd = &fh_data->fh_cmd_table[x];
+
+        // sbl always starts from sector 0
+        if (strstr(fh_cmd->cmd.type, "erase") &&
+            fh_cmd->erase.start_sector == 0 && 
+            opt == SBL_OPT_ERASE)
+            goto do_erase;
+        if (strstr(fh_cmd->cmd.type, "program") &&
+            fh_cmd->program.start_sector == 0 &&
+            opt == SBL_OPT_PROGRAM)
+            goto do_program;
+    }
+    dbg_time("cannot find SBL for %s, SBL not start from sector 0???\n", 
+        (opt == SBL_OPT_ERASE) ? "erase" : "program");
+    return 0;
+
+do_erase:
+    fh_send_cmd(fh_data, fh_cmd);
+    if (opt == SBL_OPT_PROGRAM)
+        free(fh_cmd->program.filename);
+    if (fh_wait_response_cmd(fh_data, &fh_rx_cmd, 6000) != 0) //SDX55 need 4 seconds
+        error_return();
+    if (strcmp(fh_rx_cmd.response.value, "ACK"))
+        error_return();
+    return 0;
+do_program:
+    fh_send_cmd(fh_data, fh_cmd);
+    if (fh_wait_response_cmd(fh_data, &fh_rx_cmd, 3000) != 0)
+    {
+        dbg_time("fh_wait_response_cmd fail\n");
+        error_return();
+    }
+    if (strcmp(fh_rx_cmd.response.value, "ACK"))
+    {
+        dbg_time("response should be ACK\n");
+        error_return();
+    }
+    if (fh_rx_cmd.response.rawmode != 1)
+    {
+        dbg_time("response should be rawmode true\n");
+        error_return();
+    }
+    if (fh_send_rawmode_image(fh_data, fh_cmd, 15000))
+    {
+        dbg_time("fh_send_rawmode_image fail\n");
+        error_return();
+    }
+    if (fh_wait_response_cmd(fh_data, &fh_rx_cmd, 6000) != 0)
+    {
+        dbg_time("fh_wait_response_cmd fail\n");
+        error_return();
+    }
+    if (strcmp(fh_rx_cmd.response.value, "ACK"))
+    {
+        dbg_time("response should be ACK\n");
+        error_return();
+    }
+    if (fh_rx_cmd.response.rawmode != 0)
+    {
+        dbg_time("response should be rawmode false\n");
+        error_return();
+    }
+
+    free(fh_cmd->program.filename);
+    return 0;
 }
 
 int firehose_main (const char *firehose_dir, void *usb_handle, unsigned qusb_zlp_mode) {
@@ -651,8 +756,22 @@ int firehose_main (const char *firehose_dir, void *usb_handle, unsigned qusb_zlp
     if (fh_send_cfg_cmd(fh_data))
         error_return();
 
+    fh_process_sbl(fh_data, SBL_OPT_ERASE);
+    for (x = 0; x < fh_data->fh_cmd_count; x++) {
+        const struct fh_cmd *fh_cmd = &fh_data->fh_cmd_table[x];
+
+        if (strstr(fh_cmd->cmd.type, "vendor")) {
+            fh_send_cmd(fh_data, fh_cmd);
+            if (fh_wait_response_cmd(fh_data, &fh_rx_cmd, 6000) != 0) //SDX55 need 4 seconds
+                error_return();
+            if (strcmp(fh_rx_cmd.response.value, "ACK"))
+                error_return();
+        }
+    }
+    
     for (x = 0; x < fh_data->fh_cmd_count; x++) {
         struct fh_cmd *fh_cmd = &fh_data->fh_cmd_table[x];
+        unsigned timeout = 6000;
         
         if (strstr(fh_cmd->cmd.type, "erase")) {
             if (g_part_upgrade && !fh_cmd->part_upgrade) {
@@ -662,13 +781,17 @@ int firehose_main (const char *firehose_dir, void *usb_handle, unsigned qusb_zlp
             if (q_erase_all_before_download) {
                 fh_cmd->erase.start_sector = 0;
                 fh_cmd->erase.num_partition_sectors = max_num_partition_sectors;
-                x = fh_data->fh_cmd_count;               
+                x = fh_data->fh_cmd_count;
+                timeout = 15*1000; //erase all need about 7 seconds
             }
-                
+            // skip SBL
+            else if (fh_cmd->erase.start_sector == 0)
+                continue;
+
             fh_send_cmd(fh_data, fh_cmd);
-            if (fh_wait_response_cmd(fh_data, &fh_rx_cmd, 6000) != 0) //SDX55 need 4 seconds
+            if (fh_wait_response_cmd(fh_data, &fh_rx_cmd, timeout) != 0) //SDX55 need 4 seconds
                 error_return();
-             if (strcmp(fh_rx_cmd.response.value, "ACK"))
+            if (strcmp(fh_rx_cmd.response.value, "ACK"))
                 error_return();
         }
     }
@@ -678,6 +801,12 @@ int firehose_main (const char *firehose_dir, void *usb_handle, unsigned qusb_zlp
 
         if (strstr(fh_cmd->cmd.type, "program")) {
             if (g_part_upgrade && !fh_cmd->part_upgrade) {
+                continue;
+            }
+
+            // skip SBL
+            if (fh_cmd->program.start_sector == 0) {
+                update_transfer_bytes(fh_cmd->program.filesz);
                 continue;
             }
 
@@ -714,6 +843,7 @@ int firehose_main (const char *firehose_dir, void *usb_handle, unsigned qusb_zlp
             free(fh_cmd->program.filename);
         }
     }
+    fh_process_sbl(fh_data, SBL_OPT_PROGRAM);
     
     fh_send_reset_cmd(fh_data);
     if (fh_wait_response_cmd(fh_data, &fh_rx_cmd, 3000) != 0)

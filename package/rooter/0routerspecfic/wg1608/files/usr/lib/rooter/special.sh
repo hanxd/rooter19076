@@ -1,5 +1,7 @@
 #!/bin/sh
 
+exit 0
+
 LED=0
 SM=$(uci get system.greensignal)
 if [ -z $SM ]; then

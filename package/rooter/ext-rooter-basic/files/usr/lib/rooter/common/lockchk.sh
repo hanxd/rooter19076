@@ -47,7 +47,7 @@ COPSMODE=$(echo $OX | grep -o "+COPS:[ ]\?[014]" | grep -o "[014]")
 COPSPLMN=$(echo $OX | grep -o "[0-9]\{5,6\}")
 
 if [ -z "$LOCK" -o "$LOCK" = "0" ]; then
-	if [ $COPSMODE = "0" ]; then
+	if [ "$COPSMODE" = "0" ]; then
 		exit 0
 	fi
 	setautocops

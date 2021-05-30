@@ -98,6 +98,7 @@ L1X=$(uci get modem.modem$CURRMODEM.L1X)
 case $uVid in
 	"2c7c" )
 		M2='AT+QENG="neighbourcell"'
+		M5=""
 		case $uPid in
 			"0125" ) # EC25-A
 				EC25=$(echo $model | grep "EC25-AF")
@@ -125,17 +126,42 @@ case $uVid in
 			;;
 			"0620" ) # EM20-G
 				EM20=$(echo $model | grep "EM20")
-				if [ ! -z $EM20 ]; then
+				if [ ! -z $EM20 ]; then # EM20
 					M3="20000A7E03B0F38DF"
 					M4='AT+QCFG="band",0,'$M3',0'
+					if [ -e /etc/fake ]; then
+						mask="42000087E2BB0F38DF"
+						fibdecode $mask 1 1
+						M4F='AT+QNWPREFCFG="lte_band",'$lst
+						#mask5='7042000081A0090808D7'
+						#fibdecode $mask5 1 1
+						#M5F='AT+QNWPREFCFG="nsa_nr5g_band",'$lst
+						log "Fake RM500 $M4F"
+						#log "Fake Scan to All $M5F"
+					fi
 					
-					fibdecode $M3 1 1
-					log "Fake EM160 Set to All $lst"
-					
-				else
+				else # EM160
 					mask="20000A7E0BB0F38DF"
 					fibdecode $mask 1 1
 					M4='AT+QNWPREFCFG="lte_band",'$lst
+				fi
+			;;
+			"0800" )
+				GL=$(echo $model | grep "\-GL")
+				if [ ! -z "$GL" ]; then #FM500-GL
+					mask="42000087E2BB0F38DF"
+					fibdecode $mask 1 1
+					M4='AT+QNWPREFCFG="lte_band",'$lst
+					#mask5='70000000010000000000'
+					#fibdecode $mask5 1 1
+					#M5='AT+QNWPREFCFG="nsa_nr5g_band",'$lst
+				else # FM500-AE
+					mask="42000087E2BB0F38DF"
+					fibdecode $mask 1 1
+					M4='AT+QNWPREFCFG="lte_band",'$lst
+					#mask5='7042000081A0090808D7'
+					#fibdecode $mask5 1 1
+					#M5='AT+QNWPREFCFG="nsa_nr5g_band",'$lst
 				fi
 			;;
 			* )
@@ -146,6 +172,10 @@ case $uVid in
 		
 		OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$M4")
 		log "$OX"
+		if [ ! -z $M5 ]; then
+			OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$M5")
+			log "$OX"
+		fi
 		sleep 5
 	;;
 	"1199" )
@@ -295,13 +325,15 @@ echo "Done" >> /tmp/scan
 
 case $uVid in
 	"2c7c" )
-		if [ $uPid = 0620 ]; then
+		if [ $uPid = 0620 -o $uPid = "0800" ]; then
 			EM20=$(echo $model | grep "EM20")
-			if [ ! -z $EM20 ]; then
+			if [ ! -z $EM20 ]; then # EM20
 				M2='AT+QCFG="band",0,'$L1',0'
-				
-				fibdecode $L1 1 1
-				log "Fake EM160 Band Set "$lst
+				if [ -e /etc/fake ]; then
+					fibdecode $L1 1 1
+					M2F='AT+QNWPREFCFG="lte_band",'$lst
+					log "Fake EM160 Band Set "$M2F
+				fi
 			else
 				fibdecode $L1 1 1
 				M2='AT+QNWPREFCFG="lte_band",'$lst

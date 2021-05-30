@@ -130,7 +130,7 @@ check_apn() {
 	fi
 	ATCMDD="AT+CGDCONT?;+CFUN?"
 	OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
-	if `echo ${OX} | grep "+CGDCONT: 1,\"$IPVAR\",\"$NAPN\"," 1>/dev/null 2>&1`
+	if `echo $OX | grep "+CGDCONT: 1,\"$IPVAR\",\"$NAPN\"," 1>/dev/null 2>&1`
 	then
 		if [ -z "$(echo $OX | grep -o "+CFUN: 1")" ]; then
 			OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "AT+CFUN=1")
@@ -264,22 +264,28 @@ chkraw() {
 }
 
 chkreg() {
-	local OX REGV REGST
+	local OX REGV REGST REGCMD
 	local COMMPORT="/dev/ttyUSB"$CPORT
-	ATCMDD="AT+CREG?"
+	ATCMDD="AT+CEREG?;+CREG?"
 	OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
-	REGV=$(echo "$OX" | grep -o "+CREG: [0-3],[0-9]")
-	if [ -n "$REGV" ]; then
-		REGST=$(echo "$REGV" | cut -d, -f2)
-		case $REGST in
-		"1"|"5"|"6"|"7" )
-			REGOK=1
-			;;
-		* )
-			REGOK=0
-			;;
-		esac
-	fi
+	for REGCMD in +CEREG +CREG; do
+		REGV=$(echo "$OX" | grep -o "$REGCMD: [0-3],[0-9]")
+		if [ -n "$REGV" ]; then
+			REGST=$(echo "$REGV" | cut -d, -f2)
+			case $REGST in
+			"0" )
+				continue
+				;;
+			"1"|"5"|"6"|"7" )
+				REGOK=1
+				break
+				;;
+			* )
+				REGOK=0
+				;;
+			esac
+		fi
+	done
 }
 
 addv6() {
@@ -494,7 +500,7 @@ log Modem at $MDEVICE is a parent of $TTYDEVS
 
 		chksierra
 		SIERRAIF2='1199:90b1'
-		if [ echo $SIERRAIF2 | grep -q -i "$idV:$idP" ]; then
+		if [[ $(echo $SIERRAIF2 | grep -q -i "$idV:$idP") ]]; then
 			IfNum=02
 		else
 			IfNum=03
@@ -618,17 +624,9 @@ log Modem at $MDEVICE is a parent of $TTYDEVS
 		esac
 		sleep $DELAY
 
-#		cat /sys/kernel/debug/usb/devices > /tmp/wdrv
-#		$ROOTER/ncmfind.lua $idV $idP
-#		retval=$?
-#		rm -f /tmp/wdrv
-#		lua $ROOTER/common/modemchk.lua "$idV" "$idP" "$retval" "$retval"
-
 		get_tty_ncm
 		lua $ROOTER/common/modemchk.lua "$idV" "$idP" "$CPORT" "$CPORT"
 		source /tmp/parmpass
-
-#		CPORT=`expr $CPORT + $BASEP`
 
 		log "NCM Comm Port : /dev/ttyUSB$CPORT"
 		;;
@@ -764,16 +762,11 @@ if [ -n "$CHKPORT" ]; then
 		DHCP=0
 	elif [ $PROT = 2 -a $idV = 05c6 -a $idP = 9025 ]; then
 		[ $MAN = "Telit" ] || DHCP=0
-#	optional :
-#	elif [ $PROT = 2 -a $idV = 1bc7 -a $idP = 1900 ]; then
-#		DHCP=0
-#	elif [ $PROT = 2 -a $idV = 03f0 -a $idP = 0857 ]; then
-#		DHCP=0
 	fi
 	NODHCP=$(uci -q get modem.modeminfo$CURRMODEM.nodhcp)
-	if [ $NODHCP = "1" ]; then
+	if [ "$NODHCP" = "1" ]; then
 		DHCP=0
-		log " Using QMI No DHCP"
+		log "Using QMI without DHCP"
 	fi
 	
 	if [ $DHCP = 1 ]; then
@@ -816,7 +809,7 @@ if [ -n "$CHKPORT" ]; then
 			rm -f $ROOTER_LINK/create_proto$CURRMODEM
 			log "Forced Protcol Value : $retval"
 			log "Connecting a PPP Modem"
-			ln -s $ROOTER/ppp/create_ppp.sh $ROOTER_LINK/create_proto$CURRMODEM
+			ln -fs $ROOTER/ppp/create_ppp.sh $ROOTER_LINK/create_proto$CURRMODEM
 			$ROOTER_LINK/create_proto$CURRMODEM $CURRMODEM &
 			exit 0
 		fi
@@ -869,7 +862,7 @@ while [ 1 -lt 6 ]; do
 			OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "setpin.gcom" "$CURRMODEM")
 			chcklog "$OX"
 			ERROR="ERROR"
-			if `echo ${OX} | grep "${ERROR}" 1>/dev/null 2>&1`
+			if `echo $OX | grep "$ERROR" 1>/dev/null 2>&1`
 			then
 				log "Modem $CURRMODEM Failed to Unlock SIM Pin"
 				$ROOTER/signal/status.sh $CURRMODEM "$MAN $MOD" "Failed to Connect : Pin Locked"
@@ -898,14 +891,14 @@ while [ 1 -lt 6 ]; do
 			OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "connect-directip.gcom" "$CURRMODEM")
 			chcklog "$OX"
 			ERROR="ERROR"
-			if `echo ${OX} | grep "${ERROR}" 1>/dev/null 2>&1`
+			if `echo $OX | grep "$ERROR" 1>/dev/null 2>&1`
 			then
 				BRK=1
 				$ROOTER/signal/status.sh $CURRMODEM "$MAN $MOD" "Failed to Connect : Retrying"
 			fi
 			M7=$(echo "$OX" | sed -e "s/SCACT:/SCACT: /;s!  ! !g")
 			SCACT="!SCACT: 1,1"
-			if `echo ${M7} | grep "${SCACT}" 1>/dev/null 2>&1`
+			if `echo $M7 | grep "$SCACT" 1>/dev/null 2>&1`
 			then
 				BRK=0
 				ifup wan$INTER
@@ -939,9 +932,9 @@ while [ 1 -lt 6 ]; do
 #
 	"4"|"6"|"7"|"24"|"26"|"27" )
 		OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "ati")
-		E5372=$(echo ${OX} | grep "E5372")
-		R215=$(echo ${OX} | grep "R215")
-		E5787=$(echo ${OX} | grep "E5787")
+		E5372=$(echo $OX | grep "E5372")
+		R215=$(echo $OX | grep "R215")
+		E5787=$(echo $OX | grep "E5787")
 		check_apn
 		if [ -n "$E5372" -o -n "$R215" -o -n "$E5787" ]; then
 			ifup wan$INTER
@@ -950,13 +943,13 @@ while [ 1 -lt 6 ]; do
 			OX=$($ROOTER/gcom/gcom-locked "/dev/cdc-wdm$WDMNX" "connect-ncm.gcom" "$CURRMODEM")
 			chcklog "$OX"
 			ERROR="ERROR"
-			if `echo ${OX} | grep "${ERROR}" 1>/dev/null 2>&1`
+			if `echo $OX | grep "$ERROR" 1>/dev/null 2>&1`
 			then
 				OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "connect-ncm.gcom" "$CURRMODEM")
 				chcklog "$OX"
 			fi
 			ERROR="ERROR"
-			if `echo ${OX} | grep "${ERROR}" 1>/dev/null 2>&1`
+			if `echo $OX | grep "$ERROR" 1>/dev/null 2>&1`
 			then
 				BRK=1
 				$ROOTER/signal/status.sh $CURRMODEM "$MAN $MOD" "Failed to Connect : Retrying"
@@ -973,7 +966,7 @@ while [ 1 -lt 6 ]; do
 					DOMAIN=$(echo "$OX" | awk -F[,\ ] '/^\^SYSINFO:/ {print $3}')
 				fi
 				CGPADDR="+CGPADDR:"
-				if `echo ${OX} | grep "${CGPADDR}" 1>/dev/null 2>&1`
+				if `echo $OX | grep "$CGPADDR" 1>/dev/null 2>&1`
 				then
 					if [ $STATUS = "2" ]; then
 						if [ $DOMAIN = "1" ]; then
@@ -1030,7 +1023,7 @@ while [ 1 -lt 6 ]; do
 		if [ "$SIMFAIL" = 1 -o "$REGOK" != 1 ]; then
 			BRK=1
 			$ROOTER/signal/status.sh $CURRMODEM "$MAN $MOD" "Failed to Connect : Retrying"
-		elif [[ echo "${OX}" | grep -q "${ERROR}" ]]; then
+		elif [[ $(echo "$OX" | grep -q "$ERROR") ]]; then
 			BRK=1
 			$ROOTER/signal/status.sh $CURRMODEM "$MAN $MOD" "Failed to Connect : Retrying"
 		else
@@ -1149,16 +1142,16 @@ case $PROT in
 # Sierra, NCM and QMI use modemsignal.sh and reconnect.sh
 #
 	"1"|"2"|"4"|"6"|"7"|"24"|"26"|"27"|"28" )
-		ln -s $ROOTER/signal/modemsignal.sh $ROOTER_LINK/getsignal$CURRMODEM
-		ln -s $ROOTER/connect/reconnect.sh $ROOTER_LINK/reconnect$CURRMODEM
+		ln -fs $ROOTER/signal/modemsignal.sh $ROOTER_LINK/getsignal$CURRMODEM
+		ln -fs $ROOTER/connect/reconnect.sh $ROOTER_LINK/reconnect$CURRMODEM
 		# send custom AT startup command
 		if [ $(uci -q get modem.modeminfo$CURRMODEM.at) -eq "1" ]; then
 			ATCMDD=$(uci -q get modem.modeminfo$CURRMODEM.atc)
-			if [ ! -z "${ATCMDD}" ]; then
+			if [ ! -z "$ATCMDD" ]; then
 				OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
 				OX=$($ROOTER/common/processat.sh "$OX")
 				ERROR="ERROR"
-				if `echo ${OX} | grep "${ERROR}" 1>/dev/null 2>&1`
+				if `echo $OX | grep "$ERROR" 1>/dev/null 2>&1`
 				then
 					log "Error sending custom AT command: $ATCMDD with result: $OX"
 				else
@@ -1170,15 +1163,17 @@ case $PROT in
 esac
 
 	$ROOTER_LINK/getsignal$CURRMODEM $CURRMODEM $PROT &
-	ln -s $ROOTER/connect/conmon.sh $ROOTER_LINK/con_monitor$CURRMODEM
+	ln -fs $ROOTER/connect/conmon.sh $ROOTER_LINK/con_monitor$CURRMODEM
 	$ROOTER_LINK/con_monitor$CURRMODEM $CURRMODEM &
 	uci set modem.modem$CURRMODEM.connected=1
 	uci commit modem
 	
-	M1='AT+COPS=?'
-	export TIMEOUT="75"
-	OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$M1")
-	export TIMEOUT="5"
+	if [ -e /etc/bandlock ]; then
+		M1='AT+COPS=?'
+		export TIMEOUT="75"
+		OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$M1")
+		export TIMEOUT="5"
+	fi
 	
 	if [ -e $ROOTER/timezone.sh ]; then
 		TZ=$(uci -q get modem.modeminfo$CURRMODEM.tzone)

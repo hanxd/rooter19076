@@ -156,6 +156,10 @@ int auto_find_quectel_modules(char *module_sys_path, unsigned size)
             continue;
         }
 
+        if ((strStartsWith(sysinfo.PRODUCT, "2c7c/6") || strStartsWith(sysinfo.PRODUCT, "2c7c/8"))
+            && (sysinfo.PRODUCT[strlen("2c7c/6000")] == '/')) //skip ASR&HISI modules
+            continue;
+
         snprintf(module_sys_path, size, "%s/%s", base, de->d_name);
         count++;
         dbg_time("[%d] %s %s\n", count, module_sys_path, sysinfo.PRODUCT);
@@ -205,7 +209,7 @@ void quectel_get_syspath_name_by_ttyport(const char *module_port_name, char *mod
 
     snprintf(sysport, sizeof(sysport), "/sys/class/tty/%s", &module_port_name[strlen("/dev/")]);
     count = readlink(sysport, syspath, sizeof(syspath) - 1);
-    if (count < strlen(":1.0/tty"))
+    if (count < (int)strlen(":1.0/tty"))
         return;
 
 //ttyUSB0 -> ../../devices/soc0/soc/2100000.aips-bus/2184200.usb/ci_hdrc.1/usb1/1-1/1-1:1.0/ttyUSB0/tty/ttyUSB0
@@ -234,12 +238,12 @@ static void quectel_get_usb_device_info(const char *module_sys_path, struct quec
         return;
 
     snprintf(devname, sizeof(devname), "/dev/%s", sysinfo.DEVNAME);
-    if (access(devname, R_OK) && errno == ENOENT) {
+    if (access(devname, R_OK) && errno_nodev()) {
         //maybe Linux have create /sys/ device, but not ready to create /dev/ device.
         usleep(100*1000);
     }
     
-    if (access(devname, R_OK) && errno == ENOENT)
+    if (access(devname, R_OK) && errno_nodev())
     {
         char *p = strstr(devname+strlen("/dev/"), "/");
         
@@ -578,7 +582,8 @@ int usbfs_is_kernel_driver_alive(int fd, int ifnum)
     struct usbfs_getdriver getdrv;
     getdrv.interface = ifnum;
     if (ioctl(fd, USBDEVFS_GETDRIVER, &getdrv) < 0) {
-        dbg_time("%s ioctl USBDEVFS_GETDRIVER failed, kernel driver may be inactive\n", __func__);
+        if (errno != ENODATA)
+            dbg_time("%s ioctl USBDEVFS_GETDRIVER failed, errno: %d (%s)\n", __func__, errno, strerror(errno));
         return 0;
     }
     dbg_time("%s find interface %d has match the driver %s\n", __func__, ifnum, getdrv.driver);
@@ -986,4 +991,75 @@ int qpcie_open(const char *firehose_dir) {
     edl_pcie_mhifd = edlfd;
 	
     return 0;
+}
+
+int usbmon_fd = -1;
+int usbmon_logfile_fd = -1;
+
+void *catch_log(void *arg)
+{
+    int nreads = 0;
+    char buff[256-32], tbuff[256];
+    time_t t;
+    struct tm *tm;
+
+    while(1) {
+        nreads = read(usbmon_fd, buff, sizeof(buff));
+        if (nreads <= 0)
+			break;
+
+        buff[nreads] = '\0';
+
+        time(&t);
+        tm = localtime(&t);
+        sprintf(tbuff, "%04d/%02d/%02d_%02d:%02d:%02d %s",
+                tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec, buff);
+
+        write(usbmon_logfile_fd, tbuff, strlen(tbuff));
+    }
+
+    return NULL;
+}
+
+int ql_capture_usbmon_log(const char* usbmon_logfile)
+{
+    const char *usbmon_path = "/sys/kernel/debug/usb/usbmon/0u";
+    pthread_t pt;
+    pthread_attr_t attr;
+
+    if (access("/sys/kernel/debug/usb", F_OK)) {
+        dbg_time("debugfs is not mount, please execute \"mount -t debugfs none_debugs /sys/kernel/debug\"\n");
+        return -1;
+    }
+    if (access("/sys/kernel/debug/usb/usbmon", F_OK)) {
+        dbg_time("usbmon is not load, please execute \"modprobe usbmon\" or \"insmod usbmon.ko\"\n");
+        return -1;
+    }
+
+    usbmon_fd = open(usbmon_path, O_RDONLY);
+    if (usbmon_fd < 0) {
+        dbg_time("open %s error(%d) (%s)\n", usbmon_path, errno, strerror(errno));
+        return -1;
+    }
+
+    usbmon_logfile_fd = open(usbmon_logfile, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if (usbmon_logfile_fd < 0) {
+        dbg_time("open %s error(%d) (%s)\n", usbmon_logfile, errno, strerror(errno));
+        close(usbmon_fd);
+        return -1;
+    }
+
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    pthread_create(&pt, &attr, catch_log, NULL);
+
+    return 0;
+}
+
+void ql_stop_usbmon_log()
+{
+    if (usbmon_logfile_fd > 0)
+        close(usbmon_logfile_fd);
+    if (usbmon_fd > 0)
+        close(usbmon_fd);
 }
