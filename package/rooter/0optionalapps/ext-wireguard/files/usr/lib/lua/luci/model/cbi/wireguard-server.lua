@@ -97,6 +97,12 @@ dns.rmempty = true;
 dns.optional=false;
 dns.default="";
 
+mtu = ss:option(Value, "mtu", translate("MTU :"), translate("Maximum MTU")); 
+mtu.rmempty = true;
+mtu.optional=false;
+mtu.datatype = 'range(1280,1420)';
+mtu.default="1280";
+
 aip = ss:option(Value, "allowed_ips", translate("Allowed IP Address :"), translate("Comma separated list of IP Addresses allowed from Client")); 
 aip.rmempty = true;
 aip.optional=false;

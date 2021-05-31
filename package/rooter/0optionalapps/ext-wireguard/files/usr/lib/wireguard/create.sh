@@ -27,7 +27,11 @@ do_create() {
 	fi
 	config_get dns $config dns
 	if [ ! -z $dns ]; then
-		echo "dns = "$dns >> ${PKI_DIR}/package/wg.conf
+		echo "DNS = "$dns >> ${PKI_DIR}/package/wg.conf
+	fi
+	config_get mtu $config mtu
+	if [ ! -z $mtu ]; then
+		echo "MTU = "$mtu >> ${PKI_DIR}/package/wg.conf
 	fi
 	echo " " >> ${PKI_DIR}/package/wg.conf
 	echo "[Peer]" >> ${PKI_DIR}/package/wg.conf

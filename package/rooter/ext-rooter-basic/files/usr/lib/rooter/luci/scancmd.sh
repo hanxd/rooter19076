@@ -147,6 +147,12 @@ case $uVid in
 				fi
 			;;
 			"0800" )
+				rm -f /tmp/scanx
+				echo "Scan for Neighbouring cells not supported" >> /tmp/scan
+				uci set modem.pinginfo$CURRMODEM.alive=$ALIVE
+				uci commit modem
+				exit 0
+				
 				GL=$(echo $model | grep "\-GL")
 				if [ ! -z "$GL" ]; then #FM500-GL
 					mask="42000087E2BB0F38DF"

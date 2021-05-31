@@ -161,6 +161,10 @@ handle_client() {
 		auto="0"
 	fi
 	uci set network.wg0.auto="$auto"
+	mtu=$(uci get wireguard."$WG".mtu)
+	if [ ! -z $mtu ]; then
+		uci set network.wg0.mtu="$mtu"
+	fi
 	port=$(uci get wireguard."$WG".port)
 	if [ -z $port ]; then
 		port="51280"

@@ -41,6 +41,10 @@ extract() {
 	if [ ! -z "$PRK" ]; then
 		endpoint=$(echo $PRK | cut -d, -f3)
 	fi
+	MTU=$(echo "$line" | grep "MTU" | tr " " ",")
+	if [ ! -z "$MTU" ]; then
+		mtu=$(echo $MTU | cut -d, -f3)
+	fi
 }
 
 listenport="51280"
@@ -68,6 +72,7 @@ uci set wireguard.$name.endpoint_host="$endpoint"
 uci set wireguard.$name.ips="$allowedips"
 uci set wireguard.$name.name="$name"
 uci set wireguard.$name.sport="$sport"
+uci set wireguard.$name.mtu="$mtu"
 uci commit wireguard
 
 rm -f $file

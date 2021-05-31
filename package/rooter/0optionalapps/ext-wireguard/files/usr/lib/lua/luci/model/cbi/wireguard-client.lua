@@ -44,6 +44,12 @@ dns.rmempty = true;
 dns.optional=false;
 dns.default="8.8.8.8";
 
+mtu = s:option(Value, "mtu", translate("MTU :"), translate("Maximum MTU")); 
+mtu.rmempty = true;
+mtu.optional=false;
+mtu.datatype = 'range(1280,1420)';
+mtu.default="1280";
+
 pkey = s:option(Value, "privatekey", translate("Private Key :"), translate("Private Key supplied by the Server")); 
 pkey.rmempty = true;
 pkey.optional=false;
