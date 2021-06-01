@@ -79,6 +79,9 @@ fibdecode() {
 		fi
 		ii=$((ii+1))
 	done
+	if [ -z $lst ]; then
+		lst="0"
+	fi
 }
 
 encode() {
@@ -142,15 +145,29 @@ case $uVid in
 		if [ $uPid = 0620 ]; then
 			EM20=$(echo $model | grep "EM20")
 			if [ -z "$EM20" ]; then #EM160
-				fibdecode $mask 1 1
+				if [ ! -z $mask ]; then
+					fibdecode $mask 1 1
+				else
+					lst="0"
+				fi
 				M2='AT+QNWPREFCFG="lte_band",'$lst
 			else # Fake EM160 RM500
 				if [ -e /etc/fake ]; then
-					fibdecode $mask 1 1
+					if [ ! -z $mask ]; then
+						fibdecode $mask 1 1
+					else
+						lst="0"
+					fi
 					M2F='AT+QNWPREFCFG="lte_band",'$lst
 					if [ ! -z $mask5g ]; then
 						fibdecode $mask5g 1 1
-						M5F='AT+QNWPREFCFG="nsa_nr5g_band",'$lst
+					else
+						lst="0"
+					fi
+					M5F='AT+QNWPREFCFG="nsa_nr5g_band",'$lst
+					NET=$(uci -q get modem.modem$CURRMODEM.netmode)
+					if [ $NET = "9" ]; then
+						M5F='AT+QNWPREFCFG="nr5g_band",'$lst
 					fi
 					log " "
 					log "Fake LTE Locking Cmd :  $M2F"
@@ -161,11 +178,21 @@ case $uVid in
 			fi
 		fi
 		if [ $uPid = 0800 ]; then
-			fibdecode $mask 1 1
+			if [ ! -z $mask ]; then
+				fibdecode $mask 1 1
+			else
+				lst="0"
+			fi
 			M2='AT+QNWPREFCFG="lte_band",'$lst
 			if [ ! -z $mask5g ]; then
 				fibdecode $mask5g 1 1
-				M5='AT+QNWPREFCFG="nsa_nr5g_band",'$lst
+			else
+				lst="0"
+			fi
+			M5='AT+QNWPREFCFG="nsa_nr5g_band",'$lst
+			NET=$(uci -q get modem.modem$CURRMODEM.netmode)
+			if [ $NET = "9" ]; then
+				M5='AT+QNWPREFCFG="nr5g_band",'$lst
 			fi
 		fi
 		log " "
