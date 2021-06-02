@@ -550,6 +550,16 @@ define Device/dualq_h721
 endef
 TARGET_DEVICES += dualq_h721
 
+define Device/mofi5500
+  DTS := Mofi5500
+  IMAGE_SIZE := 16064k
+  DEVICE_TITLE := Mofi5500
+  DEVICE_PACKAGES := kmod-ata-core kmod-ata-ahci kmod-sdhci-mt7620 kmod-usb3 \
+			kmod-mt7603 kmod-mt7615e 
+  SUPPORTED_DEVICES += mofi5500
+endef
+TARGET_DEVICES += mofi5500
+
 define Device/unielec_u7621-06-256m-16m
   DTS := U7621-06-256M-16M
   IMAGE_SIZE := 16064k
