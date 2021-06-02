@@ -497,7 +497,7 @@ end
 								tr.className = 'cbi-section-table-row cbi-rowstyle-' + (((io + ix) % 2) + 1) ;
 								dex = io+1 ;
 								row = tr.insertCell(-1);
-								row.innerHTML = '<div align="right"><strong>NR' + dex.toString() + '</strong></div>' ;
+								row.innerHTML = '<div align="right"><strong>n' + dex.toString() + '</strong></div>' ;
 								row.style.width = '3%' ;
 								row1 = tr.insertCell(-1);
 								row1.innerHTML = '<div align="bottom"><input type="checkbox" id="cn'+ dex.toString() +'" onclick="selectbnd5g(this)" /></div>'
@@ -682,6 +682,10 @@ end
 				document.getElementById("tab13").style.display = "";
 				document.getElementById("tab5g").style.display = "none";
 				document.getElementById("tab4g").style.display = "none";
+				document.getElementById("dym1").style.display = "none";
+				document.getElementById("dym2").style.display = "none";
+				document.getElementById("dym3").style.display = "none";
+				document.getElementById("dym5g1").style.display = "none";
 			}
 		}
 	);

@@ -143,7 +143,7 @@ function action_check_misc()
 			rv["uVid"] = uVid
 			uPid = luci.model.uci.cursor():get("modem", "modem" .. miscnum, "uPid")
 			rv["uPid"] = uPid
-			os.execute("/usr/lib/rooter/luci/mask.sh")
+			--os.execute("/usr/lib/rooter/luci/mask.sh")
 			file = io.open("/tmp/bmask", "r")
 			if file == nil then
 				rv["bndstr"] = "0"

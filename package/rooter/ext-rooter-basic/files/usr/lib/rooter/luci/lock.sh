@@ -173,6 +173,7 @@ case $uVid in
 					log "Fake LTE Locking Cmd :  $M2F"
 					log "Fake 5G Locking Cmd :  $M5F"
 					log " "
+					rm -f /tmp/bmask
 					exit 0
 				fi
 			fi
@@ -280,6 +281,10 @@ case $uVid in
 		exit 0
 	;;
 esac
+
+rm -f /tmp/bmask
+uci set modem.modem$CURRMODEM.connected=0
+uci commit modem
 
 CFUNDONE=false
 if `echo ${OX} | grep "OK" 1>/dev/null 2>&1` && \

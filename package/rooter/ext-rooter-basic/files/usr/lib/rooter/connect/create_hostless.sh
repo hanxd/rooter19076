@@ -346,10 +346,12 @@ PROT=5
 if [ $SP -gt 1 ]; then
 	ln -s $ROOTER/signal/modemsignal.sh $ROOTER_LINK/getsignal$CURRMODEM
 	$ROOTER_LINK/getsignal$CURRMODEM $CURRMODEM $PROT &
-	M1='AT+COPS=?'
-	export TIMEOUT="75"
-	OX=$($ROOTER/gcom/gcom-locked "$CPORT" "run-at.gcom" "$CURRMODEM" "$M1")
-	export TIMEOUT="5"
+	if [ -e /etc/bandlock ]; then
+		M1='AT+COPS=?'
+		export TIMEOUT="75"
+		#OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$M1")
+		export TIMEOUT="5"
+	fi
 else
 	VENDOR=$(uci get modem.modem$CURRMODEM.idV)
 	case $VENDOR in

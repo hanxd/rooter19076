@@ -553,6 +553,7 @@ if [ "$ACTION" = remove ]; then
 			rm -f /tmp/msimdata$retresult
 			rm -f /tmp/msimnum$retresult
 			rm -f /tmp/modgone
+			rm -f /tmp/bmask
 		fi
 	else
 		IDV=$(uci get mjpg-streamer.camera.idv)
