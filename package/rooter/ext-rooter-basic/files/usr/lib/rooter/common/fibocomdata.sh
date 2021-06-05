@@ -59,7 +59,10 @@ OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "fibocominfo.gcom" "$CURRMODEM")
 
 OX=$(echo $OX | tr 'a-z' 'A-Z')
 
-SERVING=$(echo $OX | grep -o "+GTCCINFO:.\+GTRAT")
+SERVING=$(echo $OX | grep -o "+GTCCINFO:.\+COPN:")
+if [ -z "$SERVING" ]; then
+	SERVING=$(echo $OX | grep -o "+GTCCINFO:.\+GTRAT")
+fi
 
 REGXa="[12],[249],[0-9]\{3\},[0-9]\{2,3\},[0-9A-F]\{0,5\},[0-9A-F]\{0,10\},[0-9A-F]\{1,8\},[0-9A-F]\{1,8\},[15][0-9]\{1,4\},[0-9]\{1,3\},[-0-9]\{1,5\},[0-9]\{1,3\},[0-9]\{1,3\},[0-9]\{1,3\}"
 
@@ -72,6 +75,9 @@ REGXd="+XMCI: 2,[0-9]\{3\},[0-9]\{2,3\},[^,]\+,[^,]\+,[^,]\+,\"0X[0-9A-F]\{8\}\"
 REGXe="+XMCI: 4,[0-9]\{3\},[0-9]\{2,3\},[^,]\+,[^,]\+,\"0X[0-9A-F]\{4\}\",\"0X[0-9A-F]\{8\}\",[^,]\+,[^,]\+,[0-9]\{1,2\},[0-9]\{1,2\},[-0-9]\{1,5\}"
 
 REGXf="SCC[0-9]: 1,0,[0-9]\{1,3\},1[0-9]\{2\},[0-9]\{1,6\},[0-9]\{1,3\}"
+
+REGXg="2,4,,,,,[0-9A-F]\{1,5\},[0-9A-F]\{1,3\},,[0-9]\{1,3\},[0-9]\{1,3\},[0-9]\{1,3\}"
+REGXh="2,9,,,,,[0-9A-F]\{5\},[0-9A-F]\{1,3\},,[0-9]\{1,3\},[0-9]\{1,3\},[0-9]\{1,3\}"
 
 CHANNEL="-"
 ECIO="-"
@@ -109,6 +115,29 @@ if [ -n "$SERVING" ]; then
 		MODE="-"
 	fi
 	GTCCDATA=$(echo $SERVING | grep -o "$REGXa")
+	LTENEIGH=$(echo $SERVING | grep -o "$REGXg")
+	NRNEIGH=$(echo $SERVING | grep -o "$REGXh")
+	rm -f /tmp/scan$CURRMODEM
+	for NVAL in $(echo "$LTENEIGH"); do
+		CHAN=$(echo $NVAL | cut -d, -f7)
+		CHAN=$(printf "%d" 0x$CHAN)
+		BAND=$(/usr/lib/rooter/chan2band.sh $CHAN)
+		PCIx=$(echo $NVAL | cut -d, -f8)
+		PCIx=$(printf "%d" 0x$PCIx)
+		RSSI=$(echo $NVAL | cut -d, -f11)
+		RSSI=$(($RSSI - 141))
+		echo -e "Band : $BAND\tPCI : $PCIx\tSignal : $RSSI (dBm)" >> /tmp/scan$CURRMODEM
+	done
+		for NVAL in $(echo "$NRNEIGH"); do
+		CHAN=$(echo $NVAL | cut -d, -f7)
+		CHAN=$(printf "%d" 0x$CHAN)
+		BAND=$(/usr/lib/rooter/chan2band.sh $CHAN)
+		PCIx=$(echo $NVAL | cut -d, -f8)
+		PCIx=$(printf "%d" 0x$PCIx)
+		RSSI=$(echo $NVAL | cut -d, -f11)
+		RSSI=$(($RSSI - 157))
+		echo -e "Band : $BAND\tPCI : $PCIx\tSignal : $RSSI (dBm)" >> /tmp/scan$CURRMODEM
+	done
 	CADATA1=""
 	CADATA2=""
 	XUDATA=""

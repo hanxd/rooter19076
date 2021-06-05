@@ -1170,8 +1170,8 @@ esac
 	
 	if [ -e /etc/bandlock ]; then
 		M1='AT+COPS=?'
-		export TIMEOUT="75"
-		#OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$M1")
+		export TIMEOUT="120"
+		#OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$M1")
 		export TIMEOUT="5"
 	fi
 	

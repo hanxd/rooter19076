@@ -227,6 +227,20 @@ case $uVid in
 		OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$M4")
 		log "$OX"
 	;;
+	"8087"|"2cb7" )
+		rm -f /tmp/scan
+		echo "Cell Scanner Start ..." > /tmp/scan
+		echo " " >> /tmp/scan
+		if [ -e /tmp/scan$CURRMODEM ]; then
+			SCX=$(cat /tmp/scan$CURRMODEM)
+			echo "$SCX" >> /tmp/scan
+		else
+			echo "No Neighbouring cells were found" >> /tmp/scan
+		fi
+		echo " " >> /tmp/scan
+		echo "Done" >> /tmp/scan
+		exit 0
+	;;
 	* )
 		rm -f /tmp/scanx
 		echo "Scan for Neighbouring cells not supported" >> /tmp/scan
