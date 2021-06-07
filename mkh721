@@ -1,0 +1,64 @@
+#!/bin/sh
+
+# automatic build maker
+
+#build version
+
+configfix() {
+	DNS=$(cat "./.config" | grep "CONFIG_PACKAGE_dnsmasq-full=y")
+	if [ ! -z $DNS ]; then
+		sed -i -e 's/CONFIG_PACKAGE_dnsmasq=y/# CONFIG_PACKAGE_dnsmasq is not set/g' ./.config
+	fi
+	WPAD=$(cat "./.config" | grep "CONFIG_PACKAGE_wpad-basic=y")
+	if [ ! -z $WPAD ]; then
+		sed -i -e 's/CONFIG_PACKAGE_wpad-basic=y/# CONFIG_PACKAGE_wpad-basic is not set/g' ./.config
+	fi
+	WPAD=$(cat "./.config" | grep "CONFIG_PACKAGE_wpad=y")
+	if [ ! -z $WPAD ]; then
+		sed -i -e 's/CONFIG_PACKAGE_wpad-mini=y/# CONFIG_PACKAGE_wpad-mini is not set/g' ./.config
+	fi
+
+}
+
+DATE=$(date +%Y-%m-%d)
+
+NAME="GoldenOrb_"
+CODE=$NAME$DATE
+rm -rf ./files
+mkdir -p ./files/etc
+
+echo 'CODENAME="'"$CODE"'"' > ./files/etc/codename
+
+BASE="openwrt-"
+BASEO="openwrt-ar71xx-generic-tl-"
+BASEQ="openwrt-ar71xx-generic-"
+ENDO="-squashfs-factory"
+ENDU="-squashfs-sysupgrade"
+
+TYP="-GO"
+END=$TYP$DATE
+
+echo "         Dual Sim LTE Wireless Industrial M2M Router" > ./files/etc/header_msg
+echo "/img/m2mlogo.png" >> ./files/etc/header_msg
+echo "/img/m2mlogo1.png" >> ./files/etc/header_msg
+echo "/img/m2mlogo1.png" >> ./files/etc/header_msg
+
+cp ./configfiles/16meg/.config_h721 ./.config
+configfix
+make V=s
+
+# H721
+
+MOD="DualQ-H721"
+EXTB=".bin"
+
+ORIG=openwrt-ramips-mt7621-dualq_h721-squashfs-sysupgrade.bin
+FIRM=$BASE$MOD$END-upgrade$EXTB
+cp ./bin/targets/ramips/mt7621/$ORIG ./images/$FIRM
+cd ./images
+zip $MOD$END.zip $FIRM
+rm -f $FIRM
+cd ..
+
+
+exit 0

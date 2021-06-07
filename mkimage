@@ -1,0 +1,104 @@
+#!/bin/sh
+
+# automatic build maker
+
+#build version
+
+#
+# fix up config file to avoid package overlap
+#
+configfix() {
+	DNS=$(cat "./.config" | grep "CONFIG_PACKAGE_dnsmasq-full=y")
+	if [ ! -z $DNS ]; then
+		sed -i -e 's/CONFIG_PACKAGE_dnsmasq=y/# CONFIG_PACKAGE_dnsmasq is not set/g' ./.config
+	fi
+	WPAD=$(cat "./.config" | grep "CONFIG_PACKAGE_wpad-basic=y")
+	if [ ! -z $WPAD ]; then
+		sed -i -e 's/CONFIG_PACKAGE_wpad-basic=y/# CONFIG_PACKAGE_wpad-basic is not set/g' ./.config
+	fi
+	WPAD=$(cat "./.config" | grep "CONFIG_PACKAGE_wpad=y")
+	if [ ! -z $WPAD ]; then
+		sed -i -e 's/CONFIG_PACKAGE_wpad-mini=y/# CONFIG_PACKAGE_wpad-mini is not set/g' ./.config
+	fi
+
+}
+
+#
+# date of the build
+# todays date
+#
+DATE=$(date +%Y-%m-%d)
+
+NAME="GoldenOrb_"
+CODE=$NAME$DATE
+rm -rf ./bin
+rm -rf ./files
+mkdir -p ./files/etc
+
+echo 'CODENAME="'"$CODE"'"' > ./files/etc/codename
+
+echo "                        <model>" > ./files/etc/header_msg
+echo "/img/header.png" >> ./files/etc/header_msg
+echo "/img/rosy.png" >> ./files/etc/header_msg
+echo "/img/tomato.png" >> ./files/etc/header_msg
+
+BASE="openwrt-"
+BASEO="openwrt-ar71xx-generic-tl-"
+BASEQ="openwrt-ar71xx-generic-"
+ENDO="-squashfs-factory"
+ENDU="-squashfs-sysupgrade"
+
+TYP="-GO"
+END=$TYP$DATE
+
+#
+# typical router image
+#
+# copy config file from /configfiles/16meg
+#
+cp ./configfiles/16meg/.config_typical ./.config
+#
+# fix the config file
+#
+configfix
+#
+# build the image
+#
+make V=s
+
+#
+# copy image from the /bin folder, rename it and zip it up
+#
+# name of image
+#
+MOD="typical-router"
+#
+# image extension
+#
+EXTB=".bin"
+
+#
+# name of image file in /bin folder
+#
+ORIG=openwrt-ath79-generic-typical-router-squashfs-sysupgrade.bin
+#
+# $BASE is "openwrt-"
+# $MOD is image name from above
+# $END is type and date of the image
+# $EXTB is the file extention
+#
+FIRM=$BASE$MOD$END$EXTB
+#
+# move file from /bin folder to /images folder and rename
+#
+cp ./bin/targets/ath79/generic/$ORIG ./images/$FIRM
+#
+# switch to /images folder and zip up the image
+#
+cd ./images
+zip $MOD$END.zip $FIRM
+# 
+# delete unzipped image file and got back to top folder
+#
+rm -f $FIRM
+cd ..
