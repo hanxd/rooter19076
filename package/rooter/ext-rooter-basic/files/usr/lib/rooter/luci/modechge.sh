@@ -113,6 +113,12 @@ if [ $MODEMTYPE -eq 6 ]; then
 	CURRMODEM=$(uci -q get modem.general.modemnum)
 	VID=$(uci -q get modem.modem$CURRMODEM.idV)
 	PID=$(uci -q get modem.modem$CURRMODEM.idP)
+	ATCMDD="AT+CGMM"
+	model=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
+	EM20=$(echo "$model" | grep "EM20")
+	if [ $EM20 ]; then
+		PID="0"
+	fi
 	NEWFMT=false
 	if [ "$VID" = "2c7c" ]; then
 		if [ "$PID" = "0800" ] || [ "$PID" = "0620" ]; then

@@ -151,12 +151,14 @@ if [ $SP -gt 0 ]; then
 			MODEL=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
 			EM160=$(echo $model | grep "EM160")
 			idV=$(uci get modem.modem$CURRMODEM.idV)
-			if [ $EM160 -o $idV = "0800" ]; then
-				ATC="AT+QNWPREFCFG=\"mode_pref\",LTE"
-			else
-				ATC="AT+QCFG=\"nwscanmode\",3"
+			if [ $idV != "0800" ]; then
+				if [ $EM160 ]; then
+					ATC="AT+QNWPREFCFG=\"mode_pref\",LTE"
+				else
+					ATC="AT+QCFG=\"nwscanmode\",3"
+				fi
+				OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
 			fi
-			OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
 		fi
 		$ROOTER/connect/bandmask $CURRMODEM 1
 		uci commit modem

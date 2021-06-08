@@ -89,7 +89,8 @@ quebandmask() {
 		L2="0"
 	else
 		if [ -e /etc/fake ]; then
-			OX='AT+QNWPREFCFG="lte_band",+QNWPREFCFG:  "lte_band",1:2:3:4:5:7:8:12:13:14:17:18:19:20:25:26:28:29:30:32:34:38:39:40:41:42:43:48:66:71 OK'
+			#OX='AT+QNWPREFCFG="lte_band",+QNWPREFCFG:  "lte_band",1:2:3:4:5:7:8:12:13:14:17:18:19:20:25:26:28:29:30:32:34:38:39:40:41:42:43:48:66:71 OK'
+			OX='AT+QNWPREFCFG="lte_band" +QNWPREFCFG: "lte_band",0  OK'
 		fi
 		qm=$(echo $OX" " | grep "+QNWPREFCFG:" | tr -d '"' | tr " " ":" | tr "," ":")
 		log "EM160/RM500 $qm"
@@ -104,6 +105,9 @@ quebandmask() {
 			L1=$(echo $qm | cut -d: -f"$bd")
 		done
 		L1=$(encodemask $msk)
+		if [ -z "$L1" ]; then
+			L1="0"
+		fi
 		L2="0"
 		GW="0"
 		if [ -e /etc/fake ]; then
@@ -114,8 +118,7 @@ quebandmask() {
 		if [ $idP = $EMT ]; then
 			ATCMDD='AT+QNWPREFCFG="nsa_nr5g_band"'
 			if [ -e /etc/fake ]; then
-				OX='AT+QNWPREFCFG="nsa_nr5g_band" +QNWPREFCFG: "nsa_nr5g_band",41:77:78:79 OK'
-				#OX='AT+QNWPREFCFG="nsa_nr5g_band" +QNWPREFCFG:  "nsa_nr5g_band",1:2:3:5:7:8:12:20:25:28:38:40:41:48:66:71:77:78:79 OK'
+				OX='AT+QNWPREFCFG="nsa_nr5g_band" +QNWPREFCFG:  "nsa_nr5g_band",1:2:3:5:7:8:12:20:25:28:38:40:41:48:66:71:77:78:79 OK'
 			else
 				OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
 			fi
@@ -136,16 +139,9 @@ quebandmask() {
 			else
 				L5="0x"$(encodemask $msk)
 			fi
-		fi
-		if [ -e /etc/fake ]; then
-			EMT=0620
-		else
-			EMT=0800 
-		fi
-		if [ $idP = $EMT ]; then
+
 			ATCMDD='AT+QNWPREFCFG="nr5g_band"'
 			if [ -e /etc/fake ]; then
-				# OX='AT+QNWPREFCFG="nr5g_band" +QNWPREFCFG: "nsa_nr5g_band",41:77:78:79 OK'
 				OX='AT+QNWPREFCFG="nr5g_band" +QNWPREFCFG: "nr5g_band",1:2:3:5:7:8:12:20:25:28:38:40:41:48:66:71:77:78:79 OK'
 			else
 				OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
@@ -166,6 +162,22 @@ quebandmask() {
 				L6="0x0"
 			else
 				L6="0x"$(encodemask $msk)
+			fi
+			$ROOTER/luci/celltype.sh $CURRMODEM
+			netmode=$(uci -q get modem.modem$CURRMODEM.netmode)
+			NET="0"
+			if [ -e /etc/fake ]; then
+				if [ $netmode = "7" ]; then
+					NET=8
+				fi
+			else
+				if [ $netmode = "8" ]; then
+					NET=8
+				fi
+			fi
+			uci set modem.modem$CURRMODEM.NET="$NET"
+			if [ $NET = "8" -a $L1 = "0" ]; then
+				log "NSA no LTE"
 			fi
 		fi
 	fi

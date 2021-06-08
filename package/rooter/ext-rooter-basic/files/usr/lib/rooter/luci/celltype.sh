@@ -188,6 +188,12 @@ ublox_type() {
 
 quectel_type() {
 	idVidP=$idV":"$idP
+	ATCMDD="AT+CGMM"
+	model=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
+	EM20=$(echo "$model" | grep "EM20")
+	if [ $EM20 ]; then
+		idVidP=$idV":"$idP"0"
+	fi
 	if [ "$idVidP" = "2c7c:0800" ] || [ "$idVidP" = "2c7c:0620" ]; then
 		ATCMDD="AT+QNWPREFCFG=\"mode_pref\""
 		OX=$($ROOTER/gcom/gcom-locked "$COMMPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")

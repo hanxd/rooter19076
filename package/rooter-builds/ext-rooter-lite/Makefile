@@ -3,14 +3,14 @@
 #Copyright GNU act.
 include $(TOPDIR)/rules.mk
 
-PKG_NAME:=ext-custom16
+PKG_NAME:=ext-rooter-lite
 PKG_VERSION:=1.000
 PKG_RELEASE:=1
 
 PKG_MAINTAINER:=Created by DM/makefile by Cobia@whirlpool
 include $(INCLUDE_DIR)/package.mk
 
-define Package/ext-custom16
+define Package/ext-rooter-lite
   SECTION:=utils
   CATEGORY:=ROOter
   DEPENDS:=+luci +ext-rooter-basic \
@@ -27,22 +27,20 @@ define Package/ext-custom16
 		+ext-extra +luci-app-hotspot +luci-app-wol \
 		+usbmuxd +libusbmuxd-utils +libimobiledevice-utils +kmod-usb-net-ipheth \
 		+nano +picocom +wpad +wget +qfirehose 
-  TITLE:=Custom ROOter support for 16meg and larger routers w/o MWan3
+  TITLE:=ROOter support w/o MWan3 for 16meg and larger routers w/o MWan3
   PKGARCH:=all
 endef
 
-define Package/ext-custom16/description
-  Helper scripts to enable Custom ROOter on 16meg and larger routers w/o MWan3
+define Package/ext-rooter-lite/description
+  Helper scripts to enable ROOter support w/o MWan3 on 16meg and larger routers w/o MWan3
 endef
 
 
 define Build/Compile
 endef
 
-define Package/ext-custom16/install
+define Package/ext-rooter-lite/install
 	$(CP) ./files/* $(1)/
-
-
 endef
 
-$(eval $(call BuildPackage,ext-custom16))
+$(eval $(call BuildPackage,ext-rooter-lite))

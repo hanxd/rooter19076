@@ -318,14 +318,28 @@ end
 			uVid = rv.uVid ;
 			uPid = rv.uPid ;
 			model = rv.model;
+			fake = rv.fake;
+			bxx = rv.bndstr ;
+			bxs = parseInt(bxx);
 			if ( uVid == "2c7c" )
 			{
-				if ( uPid == "0620" )
+				if ( uPid == "0800" || fake == "1" )
 				{
 					netm = rv.netmode;
-					if ( netm == "8" )
+					nsa = "8";
+					if ( fake == "1" )
+					{
+						nsa = "7";
+					}
+					document.getElementById("mdl").style.color = "inherit";
+					if ( netm == nsa )
 					{
 						model = rv.model + " NSA Mode";
+						if ( bxs == 0 )
+						{
+							model = model + " ***No LTE Bands selected - will not connect***";
+							document.getElementById("mdl").style.color = "red";
+						}
 						document.getElementById("5gbnd").innerHTML="5G NSA Bands";
 						document.getElementById("5gbnd").style.fontWeight = "bold" ;
 					}
@@ -1265,7 +1279,7 @@ end
 	<tr>
 		<td width="8%"><input type="submit" id="sendbnd" class="cbi-button cbi-button-apply" value="<%:Scan%>" onclick="return scanbnd()" /></td>
 		<td width="4%">&nbsp;</td>
-		<td width="20%"><div align="left"><strong>Scan to Find Bands Avaliable in Area</strong></div></td>
+		<td width="20%"><div align="left"><strong>Scan to Find Bands Available in Area</strong></div></td>
 		<td width="68%">&nbsp;</td>
 		</tr>
 	</table>

@@ -78,7 +78,7 @@ MOD="typical-router"
 EXTB=".bin"
 
 #
-# name of image file in /bin folder
+# name of the upgrade image file in /bin folder
 #
 ORIG=typical-router-squashfs-sysupgrade.bin
 #
@@ -87,18 +87,29 @@ ORIG=typical-router-squashfs-sysupgrade.bin
 # $END is type and date of the image
 # $EXTB is the file extention
 #
-FIRM=$BASE$MOD$END$EXTB
+FIRM=$BASE$MOD$END-upgrade$EXTB
 #
 # move file from /bin folder to /images folder and rename
 #
 cp ./bin/targets/xxxx/generic/$ORIG ./images/$FIRM
 #
-# switch to /images folder and zip up the image
+# name of the factory image file in /bin folder
+#
+ORIG1=typical-router-squashfs-factory.bin
+#
+FIRM1=$BASE$MOD$END-factory$EXTB
+#
+# move file from /bin folder to /images folder and rename
+#
+cp ./bin/targets/xxxx/generic/$ORIG1 ./images/$FIRM1
+#
+# switch to /images folder and zip up the images
 #
 cd ./images
-zip $MOD$END.zip $FIRM
+zip $MOD$END.zip $FIRM $FIRM1
 # 
-# delete unzipped image file and got back to top folder
+# delete unzipped image files and go back to top folder
 #
 rm -f $FIRM
+rm -f $FIRM1
 cd ..
