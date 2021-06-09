@@ -783,6 +783,10 @@ if [ -n "$CHKPORT" ]; then
 	else
 		set_dns
 	fi
+	
+	if [ -e $ROOTER/changedevice.sh ]; then
+		$ROOTER/changedevice.sh wwan0
+	fi
 
 	export SETAPN=$NAPN
 	export SETUSER=$NUSER

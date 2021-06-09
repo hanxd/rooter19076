@@ -129,10 +129,12 @@ do_custom() {
 						;;
 					"4" )
 						config_get iccid1 $1 iccid1
-						if [ "$ICCID" == "$iccid1" ]; then
+						case $ICCID in
+						"$iccid1"*)
 							MATCH=1
 							log "SIM ICCID Profile - "$name""
-						fi
+							;;
+						esac
 						;;
 					esac
 				fi

@@ -217,6 +217,9 @@ if
 then
 	log "Using usb$USBN as network interface"
 	uci set modem.modem$CURRMODEM.interface=usb$USBN
+	if [ -e $ROOTER/changedevice.sh ]; then
+		$ROOTER/changedevice.sh usb$USBN
+	fi
 	USBN=`expr 1 + $USBN`
 else
 	set_network eth$ETHN
@@ -225,6 +228,9 @@ else
 	then
 		log "Using eth$ETHN as network interface"
 		uci set modem.modem$CURRMODEM.interface=eth$ETHN
+		if [ -e $ROOTER/changedevice.sh ]; then
+			$ROOTER/changedevice.sh eth$ETHN
+		fi
 		ETHN=`expr 1 + $ETHN`
 	fi
 fi
