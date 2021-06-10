@@ -34,6 +34,7 @@ function index()
 	entry({"admin", "modem", "externalip"}, call("action_externalip"))
 	entry({"admin", "modem", "send_scancmd"}, call("action_send_scancmd"))
 	entry({"admin", "modem", "send_lockcmd"}, call("action_send_lockcmd"))
+	entry({"admin", "modem", "extping"}, call("action_extping"))
 end
 
 function trim(s)
@@ -491,4 +492,35 @@ end
 function action_send_lockcmd()
 	local set = luci.http.formvalue("set")
 	os.execute("/usr/lib/rooter/luci/lock.sh " .. set)
+end
+
+function action_extping()
+	local rv ={}
+	
+	enable = luci.model.uci.cursor():get("ping", "ping", "enable")
+	if enable == "0" then
+		rv["extping"] = "Not Enabled"
+	else
+		conn = luci.model.uci.cursor():get("ping", "ping", "conn")
+		if conn == "1" then
+			rv["extping"] = "Enabled, Waiting for Modem to Connect"
+		else
+			if conn == "2" then
+				rv["extping"] = "Enabled, Ping Test was Good"
+			else
+				if conn == "3" then
+					rv["extping"] = "Enabled, Ping Test Failed, Restarting Modem, Waiting for Reconnection"
+				else
+					if conn == "4" then
+						rv["extping"] = "Enabled, Connected, Waiting for Ping Test"
+					else
+						rv["extping"] = "Enabled, Unknown State"
+					end
+				end
+			end
+		end
+	end
+
+	luci.http.prepare_content("application/json")
+	luci.http.write_json(rv)
 end

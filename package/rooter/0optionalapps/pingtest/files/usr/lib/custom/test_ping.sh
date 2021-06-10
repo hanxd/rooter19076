@@ -11,6 +11,8 @@ logger -t "Custom Ping Test " "$@"
 
 sleep 20
 CURRMODEM=1
+uci set ping.ping.conn="1"
+uci commit ping
 while [ true ]
 do
 	ENB=$(uci get ping.ping.enable)

@@ -9,6 +9,9 @@ log() {
 logger -t "Custom Ping Test " "$@"
 }
 
+uci set ping.ping.conn="4"
+uci commit ping
+	
 CURRMODEM=1
 CPORT=$(uci -q get modem.modem$CURRMODEM.commport)
 DELAY=$(uci get ping.ping.delay)
@@ -19,6 +22,8 @@ RETURN_CODE_3=$(curl -m 10 -s -o /dev/null -w "%{http_code}" https://github.com)
 
 if [[ "$RETURN_CODE_1" != "200" &&  "$RETURN_CODE_2" != "200" &&  "$RETURN_CODE_3" != "200" ]]; then
 	log "Bad Ping Test"
+	uci set ping.ping.conn="3"
+	uci commit ping
 	ATCMDD="AT+CFUN=1,1"
 	$ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD"
 	sleep $DELAY
@@ -27,13 +32,19 @@ if [[ "$RETURN_CODE_1" != "200" &&  "$RETURN_CODE_2" != "200" &&  "$RETURN_CODE_
 	do
 		CONN=$(uci -q get modem.modem$CURRMODEM.connected)
 		if [ $CONN = "1" ]; then
+			uci set ping.ping.conn="4"
+			uci commit ping
 			RETURN_CODE_1=$(curl -m 10 -s -o /dev/null -w "%{http_code}" http://www.google.com/)
 			RETURN_CODE_2=$(curl -m 10 -s -o /dev/null -w "%{http_code}" http://www.example.org/)
 			RETURN_CODE_3=$(curl -m 10 -s -o /dev/null -w "%{http_code}" https://github.com)
 			if [[ "$RETURN_CODE_1" != "200" &&  "$RETURN_CODE_2" != "200" &&  "$RETURN_CODE_3" != "200" ]]; then
+				uci set ping.ping.conn="1"
+				uci commit ping
 				reboot -f
 			fi
 			log "Second Ping Test Good"
+			uci set ping.ping.conn="2"
+			uci commit ping
 			exit 0
 		else
 			sleep 20
@@ -41,5 +52,8 @@ if [[ "$RETURN_CODE_1" != "200" &&  "$RETURN_CODE_2" != "200" &&  "$RETURN_CODE_
 		fi
 	done
 	reboot -f
+else
+	uci set ping.ping.conn="2"
+	uci commit ping
 fi
 exit 0
