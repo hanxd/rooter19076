@@ -15,3 +15,5 @@ cd rooter19076
 
 Use 'make menuconfig' to select the Target and router model you want and
 then run 'make V=s' to build the image.
+
+See buildocs.pdf for details of how to create the build system and make images.
