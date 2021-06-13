@@ -118,7 +118,8 @@ quebandmask() {
 		if [ $idP = $EMT ]; then
 			ATCMDD='AT+QNWPREFCFG="nsa_nr5g_band"'
 			if [ -e /etc/fake ]; then
-				OX='AT+QNWPREFCFG="nsa_nr5g_band" +QNWPREFCFG:  "nsa_nr5g_band",1:2:3:5:7:8:12:20:25:28:38:40:41:48:66:71:77:78:79 OK'
+				#OX='AT+QNWPREFCFG="nsa_nr5g_band" +QNWPREFCFG:  "nsa_nr5g_band",1:2:3:5:7:8:12:20:25:28:38:40:41:48:66:71:77:78:79 OK'
+				OX='AT+QNWPREFCFG="nsa_nr5g_band" +QNWPREFCFG:  "nsa_nr5g_band",38 OK'
 			else
 				OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
 			fi
@@ -134,15 +135,16 @@ quebandmask() {
 				bd=$((bd+1))
 				L5=$(echo $qm | cut -d: -f"$bd")
 			done
-			if [ -z "$msk" ]; then
-				L5="0x0"
+			if [ -z "$msk" -o $msk = "0" ]; then
+				L5="0"
 			else
-				L5="0x"$(encodemask $msk)
+				L5=$(encodemask $msk)
 			fi
 
 			ATCMDD='AT+QNWPREFCFG="nr5g_band"'
 			if [ -e /etc/fake ]; then
-				OX='AT+QNWPREFCFG="nr5g_band" +QNWPREFCFG: "nr5g_band",1:2:3:5:7:8:12:20:25:28:38:40:41:48:66:71:77:78:79 OK'
+				#OX='AT+QNWPREFCFG="nr5g_band" +QNWPREFCFG: "nr5g_band",1:2:3:5:7:8:12:20:25:28:38:40:41:48:66:71:77:78:79 OK'
+				OX='AT+QNWPREFCFG="nr5g_band" +QNWPREFCFG: "nr5g_band",0 OK'
 			else
 				OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
 			fi
@@ -158,10 +160,10 @@ quebandmask() {
 				bd=$((bd+1))
 				L6=$(echo $qm | cut -d: -f"$bd")
 			done
-			if [ -z "$msk" ]; then
-				L6="0x0"
+			if [ -z "$msk" -o $msk = "0" ]; then
+				L6="0"
 			else
-				L6="0x"$(encodemask $msk)
+				L6=$(encodemask $msk)
 			fi
 			$ROOTER/luci/celltype.sh $CURRMODEM
 			netmode=$(uci -q get modem.modem$CURRMODEM.netmode)
@@ -173,6 +175,9 @@ quebandmask() {
 			else
 				if [ $netmode = "8" ]; then
 					NET=8
+				fi
+				if [ $netmode = "9" ]; then
+					NET=9
 				fi
 			fi
 			uci set modem.modem$CURRMODEM.NET="$NET"

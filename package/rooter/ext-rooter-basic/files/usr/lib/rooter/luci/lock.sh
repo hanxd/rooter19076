@@ -173,7 +173,7 @@ case $uVid in
 					log "Fake LTE Locking Cmd :  $M2F"
 					log "Fake 5G Locking Cmd :  $M5F"
 					log " "
-					rm -f /tmp/bmask
+					#rm -f /tmp/bmask
 					exit 0
 				fi
 			fi

@@ -321,23 +321,34 @@ end
 			fake = rv.fake;
 			bxx = rv.bndstr ;
 			bxs = parseInt(bxx);
+			bxx5g = rv.bndstr5g ;
+			bxs5g = parseInt(bxx5g);
+			
 			if ( uVid == "2c7c" )
 			{
 				if ( uPid == "0800" || fake == "1" )
 				{
 					netm = rv.netmode;
 					nsa = "8";
+					nsan = "9";
 					if ( fake == "1" )
 					{
 						nsa = "7";
+						nsan = "1";
 					}
 					document.getElementById("mdl").style.color = "inherit";
 					if ( netm == nsa )
 					{
 						model = rv.model + " NSA Mode";
+						modelx = model ;
 						if ( bxs == 0 )
 						{
-							model = model + " ***No LTE Bands selected - will not connect***";
+							model = modelx + " ***No LTE Bands selected - will not connect***";
+							document.getElementById("mdl").style.color = "red";
+						}
+						if ( bxs5g == 0 )
+						{
+							model = modelx + " ***No 5G Bands selected - will not connect***";
 							document.getElementById("mdl").style.color = "red";
 						}
 						document.getElementById("5gbnd").innerHTML="5G NSA Bands";
@@ -345,9 +356,17 @@ end
 					}
 					else
 					{
-						model = rv.model + " SA Mode";
-						document.getElementById("5gbnd").innerHTML="5G SA Bands";
-						document.getElementById("5gbnd").style.fontWeight = "bold" ;
+						if ( netm == nsan )
+						{
+							model = rv.model + " SA Mode";
+							if ( bxs5g == 0 )
+							{
+								model = model + " ***No 5G Bands selected - will not connect***";
+								document.getElementById("mdl").style.color = "red";
+							}
+							document.getElementById("5gbnd").innerHTML="5G SA Bands";
+							document.getElementById("5gbnd").style.fontWeight = "bold" ;
+						}
 					}
 				}
 			}
@@ -451,6 +470,7 @@ end
 					
 					for (i = 0; i < blen; i++) {
 						bm = bndstr.substr(i, 1) ;
+						
 						checkbox[i+1] = 0;
 						if ( bm == "1" )
 						{
@@ -465,6 +485,7 @@ end
 						}
 						chkbox[i+1] = parseInt(bm) ; 
 					}	
+					blen = i-1;
 
 					document.getElementById("dym1").style.display = "";
 					document.getElementById("tab4g").style.display = "";
@@ -1000,7 +1021,6 @@ end
 		for ( jo = blen; jo > 0; jo-- ) {
 			rstr = checkbox[jo].toString() + rstr ;
 		}
-
 		if ( bx5g != 'x' )
 		{
 			rstr5g = "" ;
@@ -1009,7 +1029,6 @@ end
 			}
 			rstr = rstr + ',' + rstr5g ;
 		}
-				//document.getElementById("bndtxt").value=rstr;
 
 		if ( confirm("Modem will be restarted after band change\nContinue?") )
 		{
